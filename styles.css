@@ -77,6 +77,17 @@ a:hover { text-decoration: underline; }
   letter-spacing: 0.3px;
 }
 
+.pepe {
+  font-size: 22px;
+  line-height: 1;
+  margin-right: -2px;
+  filter: drop-shadow(0 0 5px rgba(76, 175, 80, 0.4));
+  transition: transform 0.2s;
+}
+.brand:hover .pepe {
+  transform: scale(1.15) rotate(-6deg);
+}
+
 /* BUTTON */
 .btn {
   background: var(--bg-3);
@@ -227,6 +238,7 @@ main {
   .gauge-value { font-size: 44px; }
   .brand h1 { font-size: 15px; }
   .disclaimer-badge { display: none; }
+  .pepe { font-size: 18px; }
 }
 
 /* CARDS */
