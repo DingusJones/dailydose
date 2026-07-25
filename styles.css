@@ -165,13 +165,14 @@ main {
   #last-updated { font-size: 11px; }
   .btn { padding: 6px 12px; font-size: 12px; }
 
-  /* Ticker card — full bleed on mobile */
+  /* Ticker card — full bleed on mobile without causing page overflow */
   .ticker-card {
-    width: 100vw;
+    width: calc(100% + 24px);
     margin-left: -12px;
     border-radius: 0;
     border-left: none;
     border-right: none;
+    max-width: 100vw;
   }
 
   /* Stat cards — centered text on mobile */
@@ -184,26 +185,21 @@ main {
   #tradingview-ticker { width: 100%; overflow: hidden; min-width: 0; }
   #tradingview-ticker iframe { max-width: 100% !important; }
 
-  /* Coin table — horizontal scroll, compact, centered */
-  .table-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; text-align: center; }
-  .coins-table { font-size: 12px; min-width: 500px; margin: 0 auto; }
-  .coins-table th { padding: 8px 8px; font-size: 10px; }
-  .coins-table td { padding: 8px 8px; }
-  .coin-cell img { width: 18px; height: 18px; }
-  .coin-cell span { font-size: 12px; }
-  .sparkline { width: 60px; height: 24px; }
+  /* Coin table — horizontal scroll inside the card, never overflow viewport */
+  .table-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; text-align: center; width: 100%; max-width: 100%; }
+  .coins-table { font-size: 11px; min-width: 0; margin: 0 auto; width: 100%; }
+  .coins-table th { padding: 7px 6px; font-size: 9px; }
+  .coins-table td { padding: 7px 6px; }
+  .coin-cell img { width: 16px; height: 16px; }
+  .coin-cell span { font-size: 11px; }
+  .sparkline { width: 50px; height: 20px; }
 
-  /* Trending — centered, tighter */
-  .trending-list { text-align: center; padding-left: 0; }
-  .trending-list li { padding: 8px 0; gap: 6px; justify-content: center; }
+  /* Trending — compact but still left-aligned inside centered column */
+  .trending-list { max-width: 100%; padding: 0 4px; }
+  .trending-list li { padding: 8px 0; gap: 6px; }
   .trending-list .name { font-size: 13px; }
   .trending-list .symbol { font-size: 11px; }
-  .trending-list .price-change { font-size: 11px; }
-
-  /* Trending + Top Coins cards centered on mobile */
-  #trending-list, #coins-tbody { text-align: center; }
-  .trending-list li, .coins-table td { justify-content: center; text-align: center; }
-  .coin-cell { justify-content: center; }
+  .trending-list .price-change { font-size: 11px; min-width: 44px; }
 
   /* TVL — stack on mobile */
   .tvl-row { flex-wrap: wrap; gap: 6px; }
@@ -311,24 +307,28 @@ main {
 .stat-change.down { color: var(--red); }
 
 /* TRENDING */
-.trending-list { list-style: none; padding: 0; margin: 14px 0 0 0; text-align: center; }
+.trending-list {
+  list-style: none;
+  padding: 0;
+  margin: 14px auto 0 auto;
+  max-width: 420px;
+}
 .trending-list li {
   display: flex;
   align-items: center;
-  justify-content: center;
   gap: 10px;
   padding: 10px 0;
   border-bottom: 1px solid var(--border);
 }
 .trending-list li:last-child { border-bottom: 0; }
-.trending-list .rank { color: var(--text-muted); font-size: 12px; min-width: 18px; }
-.trending-list .name { font-weight: 600; }
+.trending-list .rank { color: var(--text-muted); font-size: 12px; min-width: 18px; text-align: left; }
+.trending-list .name { font-weight: 600; flex: 1; text-align: left; }
 .trending-list .name a { color: var(--text); text-decoration: none; }
 .trending-list .name a:hover { color: var(--accent); }
-.trending-list .symbol { color: var(--text-muted); font-size: 12px; }
+.trending-list .symbol { color: var(--text-muted); font-size: 12px; text-align: left; }
 .trending-list .symbol a { color: var(--text-muted); text-decoration: none; }
 .trending-list .symbol a:hover { color: var(--accent); }
-.trending-list .price-change { font-size: 12px; font-weight: 600; }
+.trending-list .price-change { margin-left: auto; font-size: 12px; font-weight: 600; text-align: right; min-width: 50px; }
 
 /* TABLE */
 .table-wrap { overflow-x: auto; text-align: center; }
