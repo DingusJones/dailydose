@@ -80,17 +80,26 @@ async function loadGlobal() {
   } catch (e) { console.error("global", e); }
 }
 
-// ─── 2. ETH Gas (Etherchain fallback to Etherscan-style) ───
+// ─── 2. ETH Gas (Etherscan V2 — free, no key needed, rate-limited) ───
 async function loadGas() {
   try {
-    const r = await fetchJson("https://api.ethplorer.io/getGasPrice?apiKey=free");
-    document.getElementById("eth-gas").textContent = Math.round(r.gasPrice / 1e9) + "";
+    const r = await fetchJson("https://api.etherscan.io/v2/api?chainid=1&module=gastracker&action=gasoracle");
+    if (r.status === "1" && r.result) {
+      // FastGasPrice is in gwei already in V2
+      const fast = parseFloat(r.result.FastGasPrice);
+      const standard = parseFloat(r.result.ProposeGasPrice);
+      document.getElementById("eth-gas").textContent = fast.toFixed(1);
+    } else {
+      throw new Error("Etherscan API error");
+    }
   } catch {
-    // fallback: gasnow
+    // Fallback: try ethplorer
     try {
-      const r2 = await fetchJson("https://gasnow.org/api/v3/gas/price");
-      document.getElementById("eth-gas").textContent = Math.round(r2.data.fast / 1e9) + "";
-    } catch { document.getElementById("eth-gas").textContent = "—"; }
+      const r2 = await fetchJson("https://api.ethplorer.io/getGasPrice?apiKey=free");
+      document.getElementById("eth-gas").textContent = (r2.gasPrice / 1e9).toFixed(1);
+    } catch {
+      document.getElementById("eth-gas").textContent = "—";
+    }
   }
 }
 
@@ -134,8 +143,11 @@ function renderCoins(chain) {
     const pct24 = c.price_change_percentage_24h;
     const pct7d = c.price_change_percentage_7d_in_currency;
     const color = pct24 >= 0 ? "#16c784" : "#ea3943";
-    const tvSym = coinToTvSymbol(c);
-    return `<tr class="coin-row" data-tv="${tvSym}" data-name="${c.name}" style="cursor:pointer" title="Click to chart ${c.name} on TradingView">
+    const chartable = isChartable(c);
+    const tvSym = chartable ? coinToTvSymbol(c) : "";
+    const rowClass = chartable ? "coin-row" : "coin-row no-chart";
+    const titleAttr = chartable ? `title="Click to chart ${c.name} on TradingView"` : 'title="Stablecoin — no chart available"';
+    return `<tr class="${rowClass}" data-tv="${tvSym}" data-name="${c.name}" data-chartable="${chartable}" ${titleAttr}>
       <td>${i + 1}</td>
       <td><div class="coin-cell">
         <img src="${c.image}" alt="" loading="lazy" onerror="this.style.display='none'">
@@ -150,17 +162,14 @@ function renderCoins(chain) {
     </tr>`;
   }).join("");
 
-  // Add click handlers to each row — clicking swaps the TradingView chart
-  tbody.querySelectorAll(".coin-row").forEach(row => {
+  // Add click handlers — only for chartable coins
+  tbody.querySelectorAll(".coin-row[data-chartable='true']").forEach(row => {
     row.addEventListener("click", () => {
       const tv = row.getAttribute("data-tv");
       const name = row.getAttribute("data-name");
-      // Highlight selected row
       tbody.querySelectorAll(".coin-row").forEach(r => r.classList.remove("selected-coin"));
       row.classList.add("selected-coin");
-      // Reload TradingView with new symbol
       loadTradingView(tv, name);
-      // Scroll to chart
       document.getElementById("tradingview-chart").scrollIntoView({ behavior: "smooth", block: "center" });
     });
   });
@@ -186,8 +195,11 @@ async function loadTvl() {
     const list = document.getElementById("tvl-list");
     list.innerHTML = sorted.map(([name, tvl]) => {
       const pct = (tvl / maxTvl) * 100;
+      // DeFiLlama chain URL: lowercase, spaces → hyphens
+      const chainSlug = name.toLowerCase().replace(/\s+/g, "-");
+      const llamaUrl = `https://defillama.com/chain/${chainSlug}`;
       return `<div class="tvl-row">
-        <span class="tvl-name">${name}</span>
+        <span class="tvl-name"><a href="${llamaUrl}" target="_blank" rel="noopener" title="View ${name} on DeFiLlama">${name} ↗</a></span>
         <div class="tvl-bar-wrap"><div class="tvl-bar" style="width:${pct}%"></div></div>
         <span class="tvl-tvl">${fmtUsd(tvl)}</span>
       </div>`;
@@ -256,13 +268,30 @@ async function loadNews() {
   }
 }
 
-// ─── 8. Fear & Greed Index (Alternative.me) ───
+// ─── 8. Fear & Greed Index (Alternative.me) — gasoline gauge style ───
 async function loadFear() {
   try {
     const r = await fetchJson(FEAR + "?limit=1");
     const d = r.data[0];
-    document.getElementById("fear-value").textContent = d.value;
+    const val = parseInt(d.value); // 0-100
+
+    // Update value text
+    document.getElementById("fear-value").textContent = val;
     document.getElementById("fear-label").textContent = d.value_classification;
+
+    // Update gauge fill + needle position (0-100 → 0-100%)
+    const fill = document.getElementById("gauge-fill");
+    const needle = document.getElementById("gauge-needle");
+    if (fill) fill.style.width = val + "%";
+    if (needle) needle.style.left = `calc(${val}% - 2px)`;
+
+    // Color the value text based on zone
+    const valEl = document.getElementById("fear-value");
+    if (val < 25) valEl.style.color = "#ea3943";       // Extreme Fear — red
+    else if (val < 45) valEl.style.color = "#f7b500";   // Fear — yellow
+    else if (val < 55) valEl.style.color = "#8b91a5";   // Neutral — gray
+    else if (val < 75) valEl.style.color = "#16c784";   // Greed — light green
+    else valEl.style.color = "#16c784";                 // Extreme Greed — green
   } catch (e) { console.error("fear", e); }
 }
 
@@ -311,10 +340,28 @@ const TV_SYMBOLS = {
   "sei-network": "BINANCE:SEIUSDT", dymension: "BINANCE:DYMUSDT",
 };
 
+// ─── Coin → TradingView symbol mapping ───
+// Stablecoins that can't be charted against USDT (would be XXX/USDT == same asset)
+const STABLECOINS = new Set([
+  "tether", "usd-coin", "dai", "true-usd", "frax", "first-digital-usd",
+  "paxos-standard", "gemini-dollar", "ankr-stakebond", "staked-frax",
+  "sablier", "usdp", "husd", "usdx", "terrausd", "neutrino", "alchemix-usd",
+  "liquity-usd", "fei-usd", "mimo-governance-token", "usdd", "stasis-eurs",
+]);
+
 function coinToTvSymbol(coin) {
   if (TV_SYMBOLS[coin.id]) return TV_SYMBOLS[coin.id];
-  // Fallback: use symbol + USDT on BINANCE
   return "BINANCE:" + coin.symbol.toUpperCase() + "USDT";
+}
+
+function isChartable(coin) {
+  // Skip stablecoins (USDTUSDT makes no sense) and coins with no symbol
+  if (STABLECOINS.has(coin.id)) return false;
+  if (!coin.symbol) return false;
+  const sym = coin.symbol.toUpperCase();
+  // Skip if the symbol IS a stablecoin ticker
+  if (["USDT", "USDC", "DAI", "TUSD", "FRAX", "FDUSD", "USDP", "USDD", "EURS", "USTC"].includes(sym)) return false;
+  return true;
 }
 
 // ─── 10. TradingView Chart Widget ───

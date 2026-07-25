@@ -13,7 +13,7 @@
     <div class="brand">
       <span class="logo">💊</span>
       <h1>DailyDose</h1>
-      <span class="tagline">your daily crypto pulse</span>
+      <span class="disclaimer-badge">⚠ Not Financial Advice</span>
     </div>
     <div class="meta">
       <span id="last-updated" class="muted">Loading…</span>
@@ -29,28 +29,28 @@
       </div>
     </section>
 
-    <!-- SECTION 1: Market Snapshot -->
+    <!-- SECTION 1: Market Snapshot (clickable cards) -->
     <section class="grid market-grid" id="market-grid">
-      <div class="card stat-card">
+      <a class="card stat-card stat-link" href="https://www.coingecko.com/en/global-crypto-market-cap" target="_blank" rel="noopener" title="View on CoinGecko">
         <div class="stat-label">Global Market Cap</div>
         <div class="stat-value" id="global-mcap">—</div>
         <div class="stat-change" id="global-mcap-change">—</div>
-      </div>
-      <div class="card stat-card">
+      </a>
+      <a class="card stat-card stat-link" href="https://www.coingecko.com/en/high-volume" target="_blank" rel="noopener" title="View on CoinGecko">
         <div class="stat-label">24h Volume</div>
         <div class="stat-value" id="global-vol">—</div>
         <div class="stat-change muted">across all exchanges</div>
-      </div>
-      <div class="card stat-card">
+      </a>
+      <a class="card stat-card stat-link" href="https://www.coingecko.com/en/coins/bitcoin" target="_blank" rel="noopener" title="View BTC on CoinGecko">
         <div class="stat-label">BTC Dominance</div>
         <div class="stat-value" id="btc-dom">—</div>
         <div class="stat-change muted">of total market</div>
-      </div>
-      <div class="card stat-card">
+      </a>
+      <a class="card stat-card stat-link" href="https://etherscan.io/gastracker" target="_blank" rel="noopener" title="View ETH Gas Tracker on Etherscan">
         <div class="stat-label">ETH Gas</div>
         <div class="stat-value" id="eth-gas">—</div>
-        <div class="stat-change muted">gwei</div>
-      </div>
+        <div class="stat-change muted">gwei · click for details</div>
+      </a>
     </section>
 
     <!-- SECTION 1.5: TradingView Live Chart -->
@@ -106,11 +106,11 @@
       </div>
     </section>
 
-    <!-- SECTION 3: DeFi TVL by Chain (DeFiLlama) -->
+    <!-- SECTION 3: DeFi TVL by Chain (DeFiLlama — clickable) -->
     <section class="row">
       <div class="card span-3">
         <h2>🏦 DeFi TVL by Chain</h2>
-        <p class="muted small">Total value locked across all DeFi protocols — <a href="https://defillama.com" target="_blank" rel="noopener" class="muted">defillama.com</a></p>
+        <p class="muted small">Click any chain to view on DeFiLlama — <a href="https://defillama.com/chains" target="_blank" rel="noopener" class="muted">defillama.com/chains</a></p>
         <div class="tvl-list" id="tvl-list"></div>
       </div>
     </section>
@@ -130,13 +130,22 @@
       </div>
     </section>
 
-    <!-- SECTION 5: Fear & Greed + BTC/ETH sparklines -->
+    <!-- SECTION 5: Fear & Greed (gasoline gauge) + BTC/ETH -->
     <section class="row">
       <div class="card span-1 fear-card">
-        <h2>😱 Fear &amp; Greed</h2>
-        <div class="fear-gauge" id="fear-gauge">
-          <div class="fear-value" id="fear-value">—</div>
-          <div class="fear-label" id="fear-label">Loading…</div>
+        <h2>😤 Fear &amp; Greed</h2>
+        <div class="gasoline-gauge" id="fear-gauge">
+          <div class="gauge-track">
+            <div class="gauge-fill" id="gauge-fill" style="width:50%"></div>
+            <div class="gauge-needle" id="gauge-needle" style="left:50%"></div>
+          </div>
+          <div class="gauge-labels">
+            <span>Extreme Fear</span>
+            <span>Neutral</span>
+            <span>Extreme Greed</span>
+          </div>
+          <div class="gauge-value" id="fear-value">—</div>
+          <div class="gauge-class" id="fear-label">Loading…</div>
         </div>
       </div>
       <div class="card span-1">
@@ -150,8 +159,8 @@
     </section>
 
     <footer class="footer">
-      <p>DailyDose · Data: <a href="https://www.coingecko.com" target="_blank" rel="noopener">CoinGecko</a>, <a href="https://defillama.com" target="_blank" rel="noopener">DeFiLlama</a>, <a href="https://alternative.me/crypto/fear-and-greed-index/" target="_blank" rel="noopener">Alternative.me</a></p>
-      <p class="muted small">Not financial advice. Built with 💊 by Herbie for Jay.</p>
+      <p>DailyDose · Data: <a href="https://www.coingecko.com" target="_blank" rel="noopener">CoinGecko</a>, <a href="https://defillama.com" target="_blank" rel="noopener">DeFiLlama</a>, <a href="https://etherscan.io/gastracker" target="_blank" rel="noopener">Etherscan</a>, <a href="https://alternative.me/crypto/fear-and-greed-index/" target="_blank" rel="noopener">Alternative.me</a></p>
+      <p class="muted small">⚠ Not financial advice. Built with 💊 by Herbie for Jay.</p>
     </footer>
   </main>
 
