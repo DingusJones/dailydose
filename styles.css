@@ -70,11 +70,14 @@ a:hover { text-decoration: underline; }
   margin-right: 10px;
   border-radius: 0 12px 12px 0;
   filter: drop-shadow(0 0 5px rgba(76, 175, 80, 0.45));
-  transition: transform 0.2s;
+  transition: transform 0.2s, filter 0.2s;
   flex-shrink: 0;
+  -webkit-tap-highlight-color: transparent;
 }
-.brand:hover .pepe-img {
+.brand:hover .pepe-img,
+.brand:active .pepe-img {
   transform: scale(1.08) rotate(-3deg);
+  filter: drop-shadow(0 0 14px rgba(76, 175, 80, 0.9));
 }
 .meta { display: flex; align-items: center; gap: 14px; }
 
@@ -181,8 +184,16 @@ main {
   .coin-cell span { font-size: 12px; }
   .sparkline { width: 60px; height: 24px; }
 
+  /* Trending + Top Coins cards: constrain and center on mobile */
+  .row > .card.span-1, .row > .card.span-2 {
+    max-width: 100%;
+    margin-left: auto;
+    margin-right: auto;
+    box-sizing: border-box;
+  }
+
   /* Trending — centered, tighter */
-  .trending-list { text-align: center; }
+  .trending-list { text-align: center; padding-left: 0; }
   .trending-list li { padding: 8px 0; gap: 6px; justify-content: center; }
   .trending-list .name { font-size: 13px; }
   .trending-list .symbol { font-size: 11px; }
