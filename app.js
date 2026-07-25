@@ -705,7 +705,7 @@ function loadTradingView(symbol, name) {
           { proName: "COINBASE:ADAUSD", title: "Cardano" },
           { proName: "COINBASE:AVAXUSD", title: "Avalanche" },
         ],
-        showSymbolLogo: true, isTransparent: true, displayMode: "adaptive", colorTheme: "dark", locale: "en",
+        showSymbolLogo: true, isTransparent: true, displayMode: "regular", colorTheme: "dark", locale: "en", largeChartUrl: "https://www.tradingview.com/chart/",
       });
       ticker.innerHTML = "";
       ticker.appendChild(script);
