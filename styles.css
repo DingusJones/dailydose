@@ -61,6 +61,7 @@ a:hover { text-decoration: underline; }
   background-clip: text;
   -webkit-text-fill-color: transparent;
 }
+.logo { font-size: 26px; }
 .pepe-img {
   width: 40px;
   height: 44px;
