@@ -366,6 +366,45 @@ main {
   color: #fff;
   border-color: var(--accent);
 }
+
+/* DUAL TAB BAR: platform + chain */
+.yield-platform-tabs,
+.yield-chain-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+  margin-top: 10px;
+}
+.yield-platform-tabs { margin-top: 12px; }
+.yield-chain-tabs { margin-top: 8px; }
+
+.yield-platform-tab,
+.yield-chain-tab {
+  background: var(--bg-3);
+  color: var(--text-muted);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  cursor: pointer;
+  font-weight: 600;
+  transition: all 0.15s;
+}
+.yield-platform-tab {
+  padding: 5px 12px;
+  font-size: 12px;
+}
+.yield-chain-tab {
+  padding: 4px 10px;
+  font-size: 10px;
+  text-transform: uppercase;
+}
+.yield-platform-tab:hover,
+.yield-chain-tab:hover { color: var(--text); border-color: var(--accent); }
+.yield-platform-tab.active,
+.yield-chain-tab.active {
+  background: var(--accent);
+  color: #fff;
+  border-color: var(--accent);
+}
 .yield-list { display: flex; flex-direction: column; gap: 6px; margin-top: 14px; }
 .yield-item-link {
   display: block;

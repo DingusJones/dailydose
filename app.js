@@ -309,63 +309,50 @@ async function loadTvl() {
 }
 
 // ─── 6. Stablecoin Yields ───
-// Morpho: fetched directly from Morpho Blue API (accurate, live, exact vault links)
-// Others: DeFiLlama yields API with conservative filters
+// Strategy: DeFiLlama is the broadest aggregator; we also enrich Morpho vaults with exact
+// names + direct vault links from Morpho's Blue API when we can match them by symbol.
 const MORPHO_STABLES = ["USDC", "USDT", "DAI", "USDS", "PYUSD", "SUSDE", "USDE"];
 const MORPHO_CHAIN_IDS = { base: 8453, ethereum: 1, arbitrum: 42161, polygon: 137, optimism: 10 };
-const MORPHO_MIN_TVL = 100000; // $100k
-const MORPHO_MAX_APY = 0.50;   // ignore >50% APY scams
+const YIELD_MIN_TVL = 100000;
+const YIELD_MAX_APY = 50;
+
+let morphoVaultLookup = {}; // chain-symbol -> array of vault objects
 
 function morphoVaultUrl(chain, address, name) {
   const slug = name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
   return `https://app.morpho.org/${chain}/vault/${address}/${slug}#overview`;
 }
 
-function isTestVault(name, symbol) {
-  const s = (name + " " + symbol).toLowerCase();
-  return /test|tst|staging|dummy|fake|vaulter|abrc|base-test|not\s/.test(s);
-}
-
-async function loadMorphoYields() {
+// Load all Morpho vaults (not filtered by asset) so we can match DeFiLlama pools by symbol
+async function loadMorphoVaults() {
   const url = "https://blue-api.morpho.org/graphql";
-  const results = [];
   try {
     for (const [chain, chainId] of Object.entries(MORPHO_CHAIN_IDS)) {
       const query = JSON.stringify({
-        query: `{ vaults(where: { chainId_in: [${chainId}], assetSymbol_in: [${MORPHO_STABLES.map(s => `"${s}"`).join(",")}] }, first: 1000) { items { address name symbol asset { address symbol } state { totalAssetsUsd netApy fee } } } }`
+        query: `{ vaults(where: { chainId_in: [${chainId}] }, first: 1000) { items { address name symbol asset { address symbol } state { totalAssetsUsd netApy fee } } } }`
       });
       const r = await fetch(url, { method: "POST", headers: { "Content-Type": "application/json" }, body: query });
       const d = await r.json();
       const vaults = d?.data?.vaults?.items || [];
-      for (const v of vaults) {
-        const tvl = v.state?.totalAssetsUsd || 0;
-        const apy = v.state?.netApy || 0;
-        if (tvl >= MORPHO_MIN_TVL && apy > 0 && apy <= MORPHO_MAX_APY && !isTestVault(v.name, v.symbol)) {
-          results.push({
-            project: "morpho-blue",
-            chain: chain,
-            chainDisplay: chain.charAt(0).toUpperCase() + chain.slice(1),
-            name: v.name,
-            symbol: v.symbol,
-            address: v.address,
-            asset: v.asset?.symbol || cleanSymbol(v.symbol),
-            apy: apy * 100,
-            tvlUsd: tvl,
-            link: morphoVaultUrl(chain, v.address, v.name),
-          });
-        }
-      }
+      vaults.forEach(v => {
+        const key = `${chain}-${v.symbol.toUpperCase()}`;
+        if (!morphoVaultLookup[key]) morphoVaultLookup[key] = [];
+        morphoVaultLookup[key].push(v);
+      });
     }
-  } catch (e) { console.error("morpho yields", e); }
-  return results;
+  } catch (e) { console.error("morpho vaults", e); }
 }
 
-// Other platforms still via DeFiLlama
-const OTHER_PLATFORMS = ["aave-v3", "moonwell-lending", "jupiter-lend", "kamino-lend"];
-const OTHER_STABLES = ["usdc","usdt","dai","susde","usde","pyusd","usds"];
-const OTHER_CHAINS = ["base", "solana", "ethereum"];
+function getMorphoVault(chain, symbol) {
+  const chainLower = chain.toLowerCase();
+  const key = `${chainLower}-${symbol.toUpperCase()}`;
+  const vaults = morphoVaultLookup[key];
+  if (!vaults || vaults.length === 0) return null;
+  const stables = ["USDC", "USDT", "DAI", "SUSDE", "USDE", "PYUSD", "USDS"];
+  return vaults.find(v => stables.includes(v.asset?.symbol?.toUpperCase())) || vaults[0];
+}
 
-async function loadOtherYields() {
+async function loadYieldsFromDeFiLlama() {
   try {
     const r = await cachedFetch("yields", "https://yields.llama.fi/pools");
     const pools = r.data || [];
@@ -375,26 +362,45 @@ async function loadOtherYields() {
       const sym = (p.symbol || "").toLowerCase();
       const apy = p.apy || 0;
       const tvl = p.tvlUsd || 0;
+      const platforms = ["morpho-blue", "aave-v3", "moonwell-lending", "jupiter-lend", "kamino-lend"];
+      const chains = ["base", "solana", "ethereum", "arbitrum", "polygon", "optimism"];
+      const stables = ["usdc","usdt","dai","susde","usde","pyusd","usds"];
       return (
-        OTHER_PLATFORMS.includes(project) &&
-        OTHER_CHAINS.includes(chain) &&
-        apy > 0 && apy <= 50 &&
-        tvl >= 100000 &&
-        OTHER_STABLES.some(s => sym.includes(s))
+        platforms.includes(project) &&
+        chains.includes(chain) &&
+        apy > 0 && apy <= YIELD_MAX_APY &&
+        tvl >= YIELD_MIN_TVL &&
+        stables.some(s => sym.includes(s))
       );
-    }).map(p => ({
-      project: p.project,
-      chain: p.chain.toLowerCase(),
-      chainDisplay: p.chain,
-      name: cleanSymbol(p.symbol),
-      symbol: p.symbol,
-      address: null,
-      asset: cleanSymbol(p.symbol),
-      apy: p.apy,
-      tvlUsd: p.tvlUsd,
-      link: yieldDeepLink(p.project, p.chain, p.symbol, p.underlyingTokens),
-    }));
-  } catch (e) { console.error("other yields", e); return []; }
+    }).map(p => {
+      const chainLower = p.chain.toLowerCase();
+      const project = p.project;
+      let name = cleanSymbol(p.symbol);
+      let link = yieldDeepLink(project, p.chain, p.symbol, p.underlyingTokens);
+
+      // Enrich Morpho pools with exact vault data from Blue API
+      if (project === "morpho-blue") {
+        const vault = getMorphoVault(p.chain, p.symbol);
+        if (vault) {
+          name = vault.name;
+          link = morphoVaultUrl(chainLower, vault.address, vault.name);
+        }
+      }
+
+      return {
+        project,
+        chain: chainLower,
+        chainDisplay: p.chain,
+        name,
+        symbol: p.symbol,
+        address: null,
+        asset: cleanSymbol(p.symbol),
+        apy: p.apy,
+        tvlUsd: p.tvlUsd,
+        link,
+      };
+    });
+  } catch (e) { console.error("defillama yields", e); return []; }
 }
 
 // Original deep-link helper for non-Morpho platforms (kept)
@@ -434,30 +440,7 @@ function yieldDeepLink(project, chain, symbol, underlyingTokens) {
   const chainLower = chain.toLowerCase();
   const token = underlyingTokens?.[0] || "";
   const sym = cleanSymbol(symbol);
-
-  if (project === "morpho-blue") {
-    // Try to get exact Morpho vault from Blue API
-    const vault = getMorphoVault(chain, symbol);
-    if (vault) return `https://app.morpho.org/${chainLower}/vault/${vault.address}/${vault.slug}#overview`;
-    // Fallback: asset-filtered view
-    if (token) return `https://app.morpho.org/?network=${chainLower}&asset=${token}`;
-    return `https://app.morpho.org/?network=${chainLower}`;
-  }
-  if (project === "moonwell-lending") {
-    // Moonwell: market-specific page by asset
-    return `https://moonwell.fi/${chainLower}?market=${sym}`;
-  }
-  if (project === "jupiter-lend") {
-    // Jupiter Lend: attempt to open the token in Lend view
-    if (token) return `https://jup.ag/lend?token=${token}`;
-    return "https://jup.ag/lend";
-  }
-  if (project === "kamino-lend") {
-    // Kamino: no per-market public URL known, link to lending dashboard
-    return "https://app.kamino.finance/lend";
-  }
   if (project === "aave-v3") {
-    // Aave: specific reserve / market (works for Base + Mainnet)
     if (chainLower === "base" && token) return `https://app.aave.com/?marketName=proto_base_v3&asset=${token}`;
     if (chainLower === "ethereum" && token) return `https://app.aave.com/?marketName=proto_mainnet_v3&asset=${token}`;
     if (chainLower === "arbitrum" && token) return `https://app.aave.com/?marketName=proto_arbitrum_v3&asset=${token}`;
@@ -465,20 +448,13 @@ function yieldDeepLink(project, chain, symbol, underlyingTokens) {
     if (chainLower === "polygon" && token) return `https://app.aave.com/?marketName=proto_polygon_v3&asset=${token}`;
     return `https://app.aave.com/?asset=${token}`;
   }
-  // Fallback: DeFiLlama yield page
+  if (project === "moonwell-lending") return `https://moonwell.fi/${chainLower}?market=${sym}`;
+  if (project === "jupiter-lend") return token ? `https://jup.ag/lend?token=${token}` : "https://jup.ag/lend";
+  if (project === "kamino-lend") return "https://app.kamino.finance/lend";
   return `https://defillama.com/yields?project=${project}&chain=${chainLower}`;
 }
 
-// Get the best display name for a yield row
-function yieldDisplayName(project, chain, symbol) {
-  if (project === "morpho-blue") {
-    const vault = getMorphoVault(chain, symbol);
-    if (vault) return vault.name;
-  }
-  return cleanSymbol(symbol);
-}
-
-async function loadYields(filterChain) {
+async function loadYields(filterPlatform, filterChain) {
   const listEl = document.getElementById("yield-list");
   const newEl = document.getElementById("new-yield-list");
   if (!listEl) return;
@@ -488,15 +464,15 @@ async function loadYields(filterChain) {
   try { prevYields = JSON.parse(localStorage.getItem(prevKey) || "{}"); } catch {}
 
   try {
-    // Load Morpho directly + others via DeFiLlama in parallel
-    const [morphoVaults, otherPools] = await Promise.all([
-      loadMorphoYields(),
-      loadOtherYields()
-    ]);
+    // Always load Morpho vault metadata first (used to enrich DeFiLlama pools)
+    await loadMorphoVaults();
+    let all = await loadYieldsFromDeFiLlama();
 
-    let all = [...morphoVaults, ...otherPools];
+    // Apply platform filter
+    if (filterPlatform && filterPlatform !== "all") {
+      all = all.filter(p => p.project === filterPlatform);
+    }
 
-    // Apply chain filter
     if (filterChain && filterChain !== "all") {
       all = all.filter(p => p.chain === filterChain);
     }
@@ -568,16 +544,25 @@ async function loadYields(filterChain) {
 }
 
 // Current chain filter for yields
+let yieldPlatformFilter = "all";
 let yieldChainFilter = "all";
 
 // Chain tab buttons
 function setupYieldTabs() {
-  document.querySelectorAll(".yield-tab").forEach(tab => {
+  document.querySelectorAll(".yield-platform-tab").forEach(tab => {
     tab.addEventListener("click", () => {
-      document.querySelectorAll(".yield-tab").forEach(t => t.classList.remove("active"));
+      document.querySelectorAll(".yield-platform-tab").forEach(t => t.classList.remove("active"));
+      tab.classList.add("active");
+      yieldPlatformFilter = tab.getAttribute("data-platform");
+      loadYields(yieldPlatformFilter, yieldChainFilter);
+    });
+  });
+  document.querySelectorAll(".yield-chain-tab").forEach(tab => {
+    tab.addEventListener("click", () => {
+      document.querySelectorAll(".yield-chain-tab").forEach(t => t.classList.remove("active"));
       tab.classList.add("active");
       yieldChainFilter = tab.getAttribute("data-chain");
-      loadYields(yieldChainFilter);
+      loadYields(yieldPlatformFilter, yieldChainFilter);
     });
   });
 }
@@ -740,7 +725,7 @@ async function refreshAll() {
       loadCoinGeckoData(),  // returns { ethPrice, maticPrice, bnbPrice }
       loadGas(),
       loadTvl(),
-      loadYields(yieldChainFilter),
+      loadYields(yieldPlatformFilter, yieldChainFilter),
       loadNews(),
       loadFear(),
     ]);
