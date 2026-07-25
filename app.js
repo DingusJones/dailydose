@@ -327,35 +327,38 @@ function yieldProjectLabel(project) {
   return map[project] || project;
 }
 
-// Build direct link to the actual platform pool
+// Build direct link to the actual platform pool / market / vault
 function yieldDeepLink(project, chain, symbol, underlyingTokens) {
   const chainLower = chain.toLowerCase();
   const token = underlyingTokens?.[0] || "";
+  const sym = cleanSymbol(symbol);
 
   if (project === "morpho-blue") {
-    // Morpho: app.morpho.org with network + asset param
+    // Morpho: filtered asset view; specific vault contract not in DeFiLlama data
     if (token) return `https://app.morpho.org/?network=${chainLower}&asset=${token}`;
     return `https://app.morpho.org/?network=${chainLower}`;
   }
   if (project === "moonwell-lending") {
-    // Moonwell: moonwell.fi/base?market=USDC
-    const sym = cleanSymbol(symbol);
+    // Moonwell: market-specific page by asset
     return `https://moonwell.fi/${chainLower}?market=${sym}`;
   }
   if (project === "jupiter-lend") {
-    // Jupiter Lend: jup.ag/lend — no per-pool deep link, link to the token page
-    if (token) return `https://jup.ag/tokens/${chainLower}/${token}`;
-    return `https://jup.ag/lend`;
+    // Jupiter Lend: attempt to open the token in Lend view
+    if (token) return `https://jup.ag/lend?token=${token}`;
+    return "https://jup.ag/lend";
   }
   if (project === "kamino-lend") {
-    // Kamino: app.kamino.lend — link to lending dashboard
-    return `https://app.kamino.lend/`;
+    // Kamino: no per-market public URL known, link to lending dashboard
+    return "https://app.kamino.finance/lend";
   }
   if (project === "aave-v3") {
-    // Aave: app.aave.com with market + asset
+    // Aave: specific reserve / market (works for Base + Mainnet)
     if (chainLower === "base" && token) return `https://app.aave.com/?marketName=proto_base_v3&asset=${token}`;
     if (chainLower === "ethereum" && token) return `https://app.aave.com/?marketName=proto_mainnet_v3&asset=${token}`;
-    return `https://app.aave.com/`;
+    if (chainLower === "arbitrum" && token) return `https://app.aave.com/?marketName=proto_arbitrum_v3&asset=${token}`;
+    if (chainLower === "optimism" && token) return `https://app.aave.com/?marketName=proto_optimism_v3&asset=${token}`;
+    if (chainLower === "polygon" && token) return `https://app.aave.com/?marketName=proto_polygon_v3&asset=${token}`;
+    return `https://app.aave.com/?asset=${token}`;
   }
   // Fallback: DeFiLlama yield page
   return `https://defillama.com/yields?project=${project}&chain=${chainLower}`;
@@ -412,13 +415,15 @@ async function loadYields(filterChain) {
       const isNew = !prevYields[poolKey];
       const link = yieldDeepLink(p.project, p.chain, p.symbol, p.underlyingTokens);
       const tvlStr = tvl >= 1e6 ? "$" + (tvl/1e6).toFixed(1) + "M" : "$" + (tvl/1e3).toFixed(0) + "K";
-      return `<div class="yield-item ${apy > 6 ? "high" : ""} ${isNew ? "new" : ""}">
-        <div><span class="yield-project">${proj}</span> <span class="yield-chain">${chain}</span></div>
-        <span class="yield-symbol">${sym}</span>
-        <span class="yield-tvl">${tvlStr}</span>
-        <span class="yield-apy">${apy}%</span>
-        <a class="yield-link" href="${link}" target="_blank" rel="noopener" title="Open ${proj} ${sym} on ${chain}">↗</a>
-      </div>`;
+      return `<a href="${link}" target="_blank" rel="noopener" class="yield-item-link" title="Open ${proj} ${sym} on ${chain}">
+        <div class="yield-item ${apy > 6 ? "high" : ""} ${isNew ? "new" : ""}">
+          <div><span class="yield-project">${proj}</span> <span class="yield-chain">${chain}</span></div>
+          <span class="yield-symbol">${sym}</span>
+          <span class="yield-tvl">${tvlStr}</span>
+          <span class="yield-apy">${apy}%</span>
+          <span class="yield-link-icon">↗</span>
+        </div>
+      </a>`;
     }).join("");
 
     // NEW: high yields not seen in previous refresh (>4% APY, newly appeared or APY jumped)
@@ -439,12 +444,14 @@ async function loadYields(filterChain) {
           const proj = yieldProjectLabel(p.project);
           const apy = (p.apy || 0).toFixed(2);
           const link = yieldDeepLink(p.project, p.chain, p.symbol, p.underlyingTokens);
-          return `<div class="yield-item new">
-            <div><span class="yield-project">${proj}</span> <span class="yield-chain">${p.chain}</span></div>
-            <span class="yield-symbol">${sym}</span>
-            <span class="yield-apy">${apy}%</span>
-            <a class="yield-link" href="${link}" target="_blank" rel="noopener">↗</a>
-          </div>`;
+          return `<a href="${link}" target="_blank" rel="noopener" class="yield-item-link" title="Open ${proj} ${sym} on ${p.chain}">
+            <div class="yield-item new">
+              <div><span class="yield-project">${proj}</span> <span class="yield-chain">${p.chain}</span></div>
+              <span class="yield-symbol">${sym}</span>
+              <span class="yield-apy">${apy}%</span>
+              <span class="yield-link-icon">↗</span>
+            </div>
+          </a>`;
         }).join("");
       }
     }
