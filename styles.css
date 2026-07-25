@@ -226,23 +226,35 @@ main {
 .tvl-bar { height: 100%; background: linear-gradient(90deg, var(--accent), var(--accent-2)); border-radius: 4px; }
 .tvl-tvl { min-width: 110px; text-align: right; font-weight: 600; }
 
-/* WHALES */
-.whale-list { display: flex; flex-direction: column; gap: 8px; margin-top: 14px; }
-.whale-item {
+/* STABLECOIN YIELDS */
+.yield-list { display: flex; flex-direction: column; gap: 6px; margin-top: 14px; }
+.yield-item {
   display: flex;
   align-items: center;
-  gap: 10px;
-  padding: 12px;
+  gap: 8px;
+  padding: 10px 12px;
   background: var(--bg-3);
   border-radius: 8px;
   font-size: 12px;
-  border-left: 3px solid var(--yellow);
+  border-left: 3px solid var(--green);
+  transition: border-color 0.2s;
 }
-.whale-icon { font-size: 18px; }
-.whale-info { flex: 1; }
-.whale-amount { font-weight: 700; }
-.whale-usd { color: var(--text-muted); font-size: 11px; }
-.whale-time { color: var(--text-muted); font-size: 10px; }
+.yield-item:hover { border-left-color: var(--accent); }
+.yield-item.high { border-left-color: var(--green); }
+.yield-item.new { border-left-color: var(--yellow); animation: pulse-yellow 2s ease-in-out; }
+@keyframes pulse-yellow {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(247, 181, 0, 0); }
+  50% { box-shadow: 0 0 8px 0 rgba(247, 181, 0, 0.2); }
+}
+.yield-project { font-weight: 600; font-size: 11px; text-transform: capitalize; }
+.yield-chain { color: var(--text-muted); font-size: 10px; text-transform: uppercase; }
+.yield-symbol { color: var(--accent); font-weight: 600; }
+.yield-apy { margin-left: auto; font-weight: 700; font-size: 13px; color: var(--green); }
+.yield-tvl { color: var(--text-muted); font-size: 10px; }
+.yield-link { font-size: 10px; color: var(--text-muted); text-decoration: none; }
+.yield-link:hover { color: var(--accent); }
+.new-yield-list .yield-item { border-left-color: var(--yellow); }
+.new-yield-list .yield-apy { color: var(--yellow); }
 
 /* NEWS */
 .news-list { display: flex; flex-direction: column; gap: 12px; margin-top: 14px; }

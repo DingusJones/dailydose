@@ -308,17 +308,127 @@ async function loadTvl() {
   } catch (e) { console.error("tvl", e); }
 }
 
-// ─── 6. Whale Alerts ───
-async function loadWhales() {
-  const list = document.getElementById("whale-list");
+// ─── 6. Stablecoin Yields (DeFiLlama yields API — one call) ───
+const YIELD_PLATFORMS = ["morpho-blue", "aave-v3", "moonwell-lending", "jupiter-lend", "kamino-lend"];
+const YIELD_STABLES = ["usdc","usdt","dai","susde","usde","frax","tusd","lusd","pyusd","usdy","usds","alusd","cusdc","cusb","eurc","rlusd"];
+const YIELD_CHAINS = ["base", "solana", "ethereum"];
+
+function cleanSymbol(sym) {
+  // Morpho pool symbols can be messy (e.g. "SENPYUSDMAIN", "STEAKUSDC")
+  // Try to extract a recognizable stablecoin
+  const s = sym.toUpperCase();
+  for (const st of ["SUSDE","USDE","PYUSD","USDC","USDT","DAI","FRAX","TUSD","LUSD","USDY","USDS","RLUSD","EURC","CUSDC","CUSB","ALUSD"]) {
+    if (s.includes(st)) return st;
+  }
+  return sym;
+}
+
+function yieldProjectLabel(project) {
+  const map = { "morpho-blue": "Morpho", "aave-v3": "Aave", "moonwell-lending": "Moonwell", "jupiter-lend": "Jupiter", "kamino-lend": "Kamino" };
+  return map[project] || project;
+}
+
+function yieldLink(project, chain, symbol) {
+  // Link to DeFiLlama yield page
+  return `https://defillama.com/yields?project=${project}&chain=${chain}`;
+}
+
+async function loadYields() {
+  const listEl = document.getElementById("yield-list");
+  const newEl = document.getElementById("new-yield-list");
+  if (!listEl) return;
+
+  // Store previous yields to detect new ones
+  const prevKey = "dd_prev_yields";
+  let prevYields = {};
+  try { prevYields = JSON.parse(localStorage.getItem(prevKey) || "{}"); } catch {}
+
   try {
-    const r = await cachedFetch("whales", "https://api.whale-alert.io/v1/transactions?api_key=free&min_value=1000000&start=" + Math.floor(Date.now() / 1000 - 3600) + "&limit=10");
-    list.innerHTML = r.transactions.slice(0, 8).map(tx => {
-      const icon = tx.blockchain === "ethereum" ? "Ξ" : tx.blockchain === "bitcoin" ? "₿" : "🐋";
-      return `<div class="whale-item"><span class="whale-icon">${icon}</span><div class="whale-info"><div class="whale-amount">${fmtNum(tx.amount)} ${tx.symbol}</div><div class="whale-usd">${fmtUsd(tx.amount_usd)} · ${tx.blockchain} → ${tx.to.owner || "unknown"}</div></div><span class="whale-time">${timeAgo(tx.timestamp)}</span></div>`;
+    const r = await cachedFetch("yields", "https://yields.llama.fi/pools");
+    const pools = r.data || [];
+
+    // Filter: target platforms + target chains + stablecoin symbols + min TVL
+    const filtered = pools.filter(p => {
+      const project = (p.project || "").toLowerCase();
+      const chain = (p.chain || "").toLowerCase();
+      const sym = (p.symbol || "").toLowerCase();
+      const apy = p.apy || 0;
+      const tvl = p.tvlUsd || 0;
+      return (
+        YIELD_PLATFORMS.includes(project) &&
+        YIELD_CHAINS.includes(chain) &&
+        apy > 0 &&
+        tvl > 50000 &&
+        YIELD_STABLES.some(s => sym.includes(s))
+      );
+    });
+
+    // Sort by APY descending
+    filtered.sort((a, b) => (b.apy || 0) - (a.apy || 0));
+
+    // Top 12 for main list
+    const top = filtered.slice(0, 12);
+    const newOnes = [];
+
+    // Build main list
+    listEl.innerHTML = top.map(p => {
+      const sym = cleanSymbol(p.symbol);
+      const proj = yieldProjectLabel(p.project);
+      const chain = p.chain;
+      const apy = (p.apy || 0).toFixed(2);
+      const tvl = p.tvlUsd || 0;
+      const poolKey = `${proj}-${chain}-${sym}`;
+      const isNew = !prevYields[poolKey];
+      if (isNew && apy > 4) newOnes.push(p);
+      const link = yieldLink(p.project, chain, sym);
+      return `<div class="yield-item ${apy > 6 ? "high" : ""} ${isNew ? "new" : ""}">
+        <div><span class="yield-project">${proj}</span> <span class="yield-chain">${chain}</span></div>
+        <span class="yield-symbol">${sym}</span>
+        <span class="yield-apy">${apy}%</span>
+        <a class="yield-link" href="${link}" target="_blank" rel="noopener" title="View on DeFiLlama">↗</a>
+      </div>`;
     }).join("");
-  } catch {
-    list.innerHTML = `<div class="whale-item"><span class="whale-icon">🐋</span><div class="whale-info"><div class="whale-amount">Whale API needs key</div><div class="whale-usd">Get free key at whale-alert.io</div></div></div>`;
+
+    // NEW: high yields not seen in previous refresh (>4% APY, newly appeared or APY jumped)
+    const jumped = filtered.filter(p => {
+      const sym = cleanSymbol(p.symbol);
+      const proj = yieldProjectLabel(p.project);
+      const poolKey = `${proj}-${p.chain}-${sym}`;
+      const prevApy = prevYields[poolKey];
+      return (p.apy || 0) > 4 && (!prevApy || (p.apy - prevApy) > 1);
+    }).slice(0, 6);
+
+    if (newEl) {
+      if (jumped.length === 0) {
+        newEl.innerHTML = `<div class="yield-item" style="border-left-color:var(--text-muted);opacity:0.6"><div>No new high yields this refresh</div></div>`;
+      } else {
+        newEl.innerHTML = jumped.map(p => {
+          const sym = cleanSymbol(p.symbol);
+          const proj = yieldProjectLabel(p.project);
+          const apy = (p.apy || 0).toFixed(2);
+          const link = yieldLink(p.project, p.chain, sym);
+          return `<div class="yield-item new">
+            <div><span class="yield-project">${proj}</span> <span class="yield-chain">${p.chain}</span></div>
+            <span class="yield-symbol">${sym}</span>
+            <span class="yield-apy">${apy}%</span>
+            <a class="yield-link" href="${link}" target="_blank" rel="noopener">↗</a>
+          </div>`;
+        }).join("");
+      }
+    }
+
+    // Save current yields as prev for next refresh
+    const newPrev = {};
+    filtered.forEach(p => {
+      const sym = cleanSymbol(p.symbol);
+      const proj = yieldProjectLabel(p.project);
+      newPrev[`${proj}-${p.chain}-${sym}`] = p.apy || 0;
+    });
+    localStorage.setItem(prevKey, JSON.stringify(newPrev));
+
+  } catch (e) {
+    console.error("yields", e);
+    listEl.innerHTML = `<div class="yield-item" style="border-left-color:var(--red)"><div>Unable to load yields</div></div>`;
   }
 }
 
@@ -480,7 +590,7 @@ async function refreshAll() {
       loadCoinGeckoData(),  // returns { ethPrice, maticPrice, bnbPrice }
       loadGas(),
       loadTvl(),
-      loadWhales(),
+      loadYields(),
       loadNews(),
       loadFear(),
     ]);
