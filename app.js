@@ -377,13 +377,20 @@ async function loadYieldsFromDeFiLlama() {
       const project = p.project;
       let name = cleanSymbol(p.symbol);
       let link = yieldDeepLink(project, p.chain, p.symbol, p.underlyingTokens);
+      let apy = p.apy;
+      let tvlUsd = p.tvlUsd;
 
-      // Enrich Morpho pools with exact vault data from Blue API
+      // For Morpho, trust Morpho Blue API APY/TVL when we can match the vault;
+      // DeFiLlama's symbol-level APY often diverges (e.g. includes reward points / stale rates).
       if (project === "morpho-blue") {
         const vault = getMorphoVault(p.chain, p.symbol);
         if (vault) {
           name = vault.name;
           link = morphoVaultUrl(chainLower, vault.address, vault.name);
+          const netApy = vault.state?.netApy;
+          if (typeof netApy === "number" && netApy >= 0) apy = netApy * 100;
+          const morphoTvl = vault.state?.totalAssetsUsd;
+          if (typeof morphoTvl === "number" && morphoTvl >= 0) tvlUsd = morphoTvl;
         }
       }
 
