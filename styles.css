@@ -168,20 +168,30 @@ main {
   .stat-value { font-size: 18px; }
   .stat-change { font-size: 11px; }
 
-  /* Coin table — horizontal scroll, compact */
-  .table-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; }
-  .coins-table { font-size: 12px; min-width: 500px; }
+  /* Ticker tape — allow horizontal scroll on mobile */
+  #tradingview-ticker { min-width: 600px; overflow-x: auto; -webkit-overflow-scrolling: touch; }
+  #tradingview-ticker > div { min-width: 600px; }
+
+  /* Coin table — horizontal scroll, compact, centered */
+  .table-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; text-align: center; }
+  .coins-table { font-size: 12px; min-width: 500px; margin: 0 auto; }
   .coins-table th { padding: 8px 8px; font-size: 10px; }
   .coins-table td { padding: 8px 8px; }
   .coin-cell img { width: 18px; height: 18px; }
   .coin-cell span { font-size: 12px; }
   .sparkline { width: 60px; height: 24px; }
 
-  /* Trending — tighter */
-  .trending-list li { padding: 8px 0; gap: 6px; }
+  /* Trending — centered, tighter */
+  .trending-list { text-align: center; }
+  .trending-list li { padding: 8px 0; gap: 6px; justify-content: center; }
   .trending-list .name { font-size: 13px; }
   .trending-list .symbol { font-size: 11px; }
   .trending-list .price-change { font-size: 11px; }
+
+  /* Trending + Top Coins cards centered on mobile */
+  #trending-list, #coins-tbody { text-align: center; }
+  .trending-list li, .coins-table td { justify-content: center; text-align: center; }
+  .coin-cell { justify-content: center; }
 
   /* TVL — stack on mobile */
   .tvl-row { flex-wrap: wrap; gap: 6px; }
