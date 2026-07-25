@@ -312,7 +312,47 @@ async function loadTvl() {
 const YIELD_PLATFORMS = ["morpho-blue", "aave-v3", "moonwell-lending", "jupiter-lend", "kamino-lend"];
 const YIELD_STABLES = ["usdc","usdt","dai","susde","usde","frax","tusd","lusd","pyusd","usdy","usds","alusd","cusdc","cusb","eurc","rlusd"];
 // Chain names from API are capitalized: "Base", "Solana", "Ethereum"
-const YIELD_CHAIN_MAP = { "base": "Base", "solana": "Solana", "ethereum": "Ethereum" };
+const YIELD_CHAIN_MAP = { "base": "Base", "solana": "Solana", "ethereum": "Ethereum", "arbitrum": "Arbitrum", "polygon": "Polygon", "optimism": "Optimism" };
+
+let morphoVaultLookup = {}; // chain-symbol -> { address, name, slug }
+
+async function loadMorphoVaults() {
+  const chainIds = { "base": 8453, "ethereum": 1, "arbitrum": 42161, "polygon": 137, "optimism": 10 };
+  try {
+    const url = "https://blue-api.morpho.org/graphql";
+    for (const [chain, chainId] of Object.entries(chainIds)) {
+      const query = JSON.stringify({
+        query: `{ vaults(where: { chainId_in: [${chainId}] }, first: 1000) { items { address name symbol asset { address symbol } chain { id network } } } }`
+      });
+      const r = await fetch(url, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: query
+      });
+      const d = await r.json();
+      const vaults = d?.data?.vaults?.items || [];
+      vaults.forEach(v => {
+        const key = `${chain}-${v.symbol.toUpperCase()}`;
+        if (!morphoVaultLookup[key]) morphoVaultLookup[key] = [];
+        morphoVaultLookup[key].push(v);
+      });
+    }
+  } catch (e) {
+    console.error("morpho vaults", e);
+  }
+}
+
+function getMorphoVault(chain, symbol) {
+  const chainLower = chain.toLowerCase();
+  const key = `${chainLower}-${symbol.toUpperCase()}`;
+  const vaults = morphoVaultLookup[key];
+  if (!vaults || vaults.length === 0) return null;
+  // Prefer stablecoin asset vault
+  const stables = ["USDC", "USDT", "DAI", "SUSDE", "USDE", "PYUSD", "USDS"];
+  const match = vaults.find(v => stables.includes(v.asset?.symbol?.toUpperCase())) || vaults[0];
+  const slug = match.name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+  return { address: match.address, name: match.name, slug };
+}
 
 function cleanSymbol(sym) {
   const s = sym.toUpperCase();
@@ -334,7 +374,10 @@ function yieldDeepLink(project, chain, symbol, underlyingTokens) {
   const sym = cleanSymbol(symbol);
 
   if (project === "morpho-blue") {
-    // Morpho: filtered asset view; specific vault contract not in DeFiLlama data
+    // Try to get exact Morpho vault from Blue API
+    const vault = getMorphoVault(chain, symbol);
+    if (vault) return `https://app.morpho.org/${chainLower}/vault/${vault.address}/${vault.slug}#overview`;
+    // Fallback: asset-filtered view
     if (token) return `https://app.morpho.org/?network=${chainLower}&asset=${token}`;
     return `https://app.morpho.org/?network=${chainLower}`;
   }
@@ -362,6 +405,15 @@ function yieldDeepLink(project, chain, symbol, underlyingTokens) {
   }
   // Fallback: DeFiLlama yield page
   return `https://defillama.com/yields?project=${project}&chain=${chainLower}`;
+}
+
+// Get the best display name for a yield row
+function yieldDisplayName(project, chain, symbol) {
+  if (project === "morpho-blue") {
+    const vault = getMorphoVault(chain, symbol);
+    if (vault) return vault.name;
+  }
+  return cleanSymbol(symbol);
 }
 
 async function loadYields(filterChain) {
@@ -407,6 +459,7 @@ async function loadYields(filterChain) {
     // Build main list
     listEl.innerHTML = top.map(p => {
       const sym = cleanSymbol(p.symbol);
+      const name = yieldDisplayName(p.project, p.chain, p.symbol);
       const proj = yieldProjectLabel(p.project);
       const chain = p.chain;
       const apy = (p.apy || 0).toFixed(2);
@@ -415,10 +468,12 @@ async function loadYields(filterChain) {
       const isNew = !prevYields[poolKey];
       const link = yieldDeepLink(p.project, p.chain, p.symbol, p.underlyingTokens);
       const tvlStr = tvl >= 1e6 ? "$" + (tvl/1e6).toFixed(1) + "M" : "$" + (tvl/1e3).toFixed(0) + "K";
-      return `<a href="${link}" target="_blank" rel="noopener" class="yield-item-link" title="Open ${proj} ${sym} on ${chain}">
+      return `<a href="${link}" target="_blank" rel="noopener" class="yield-item-link" title="Open ${name} on ${chain}">
         <div class="yield-item ${apy > 6 ? "high" : ""} ${isNew ? "new" : ""}">
-          <div><span class="yield-project">${proj}</span> <span class="yield-chain">${chain}</span></div>
-          <span class="yield-symbol">${sym}</span>
+          <div class="yield-main">
+            <span class="yield-name">${name} <span class="yield-chain-badge">${chain}</span></span>
+            <span class="yield-project">${proj}</span>
+          </div>
           <span class="yield-tvl">${tvlStr}</span>
           <span class="yield-apy">${apy}%</span>
           <span class="yield-link-icon">↗</span>
@@ -639,8 +694,11 @@ async function refreshAll() {
   document.getElementById("last-updated").textContent = "Updating…";
 
   try {
+    // Pre-load Morpho vault metadata so yield rows can link to exact vaults
+    await loadMorphoVaults();
+
     // Phase 1: CoinGecko data (3 calls) + independent APIs (4 calls) in parallel
-    const [cgPrices, , , , , ,] = await Promise.all([
+    const [cgPrices, , , , ,] = await Promise.all([
       loadCoinGeckoData(),  // returns { ethPrice, maticPrice, bnbPrice }
       loadGas(),
       loadTvl(),
