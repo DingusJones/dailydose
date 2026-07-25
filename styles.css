@@ -77,19 +77,18 @@ a:hover { text-decoration: underline; }
   letter-spacing: 0.3px;
 }
 
-.pepe {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 28px;
-  height: 28px;
-  margin-right: 2px;
+.pepe-img {
+  width: 40px;
+  height: 44px;
+  object-fit: contain;
+  margin-left: -28px;
+  margin-right: 10px;
+  border-radius: 0 12px 12px 0;
   filter: drop-shadow(0 0 5px rgba(76, 175, 80, 0.45));
   transition: transform 0.2s;
 }
-.pepe svg { display: block; }
-.brand:hover .pepe {
-  transform: scale(1.12) rotate(-6deg);
+.brand:hover .pepe-img {
+  transform: scale(1.08) rotate(-3deg);
 }
 
 /* BUTTON */
@@ -242,7 +241,7 @@ main {
   .gauge-value { font-size: 44px; }
   .brand h1 { font-size: 15px; }
   .disclaimer-badge { display: none; }
-  .pepe { font-size: 18px; }
+  .pepe-img { margin-left: -14px; width: 34px; height: 38px; }
 }
 
 /* CARDS */
