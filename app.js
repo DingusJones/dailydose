@@ -308,50 +308,112 @@ async function loadTvl() {
   } catch (e) { console.error("tvl", e); }
 }
 
-// ─── 6. Stablecoin Yields (DeFiLlama yields API — one call) ───
-const YIELD_PLATFORMS = ["morpho-blue", "aave-v3", "moonwell-lending", "jupiter-lend", "kamino-lend"];
-const YIELD_STABLES = ["usdc","usdt","dai","susde","usde","frax","tusd","lusd","pyusd","usdy","usds","alusd","cusdc","cusb","eurc","rlusd"];
-// Chain names from API are capitalized: "Base", "Solana", "Ethereum"
-const YIELD_CHAIN_MAP = { "base": "Base", "solana": "Solana", "ethereum": "Ethereum", "arbitrum": "Arbitrum", "polygon": "Polygon", "optimism": "Optimism" };
+// ─── 6. Stablecoin Yields ───
+// Morpho: fetched directly from Morpho Blue API (accurate, live, exact vault links)
+// Others: DeFiLlama yields API with conservative filters
+const MORPHO_STABLES = ["USDC", "USDT", "DAI", "USDS", "PYUSD", "SUSDE", "USDE"];
+const MORPHO_CHAIN_IDS = { base: 8453, ethereum: 1, arbitrum: 42161, polygon: 137, optimism: 10 };
+const MORPHO_MIN_TVL = 100000; // $100k
+const MORPHO_MAX_APY = 0.50;   // ignore >50% APY scams
 
-let morphoVaultLookup = {}; // chain-symbol -> { address, name, slug }
-
-async function loadMorphoVaults() {
-  const chainIds = { "base": 8453, "ethereum": 1, "arbitrum": 42161, "polygon": 137, "optimism": 10 };
-  try {
-    const url = "https://blue-api.morpho.org/graphql";
-    for (const [chain, chainId] of Object.entries(chainIds)) {
-      const query = JSON.stringify({
-        query: `{ vaults(where: { chainId_in: [${chainId}] }, first: 1000) { items { address name symbol asset { address symbol } chain { id network } } } }`
-      });
-      const r = await fetch(url, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: query
-      });
-      const d = await r.json();
-      const vaults = d?.data?.vaults?.items || [];
-      vaults.forEach(v => {
-        const key = `${chain}-${v.symbol.toUpperCase()}`;
-        if (!morphoVaultLookup[key]) morphoVaultLookup[key] = [];
-        morphoVaultLookup[key].push(v);
-      });
-    }
-  } catch (e) {
-    console.error("morpho vaults", e);
-  }
+function morphoVaultUrl(chain, address, name) {
+  const slug = name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+  return `https://app.morpho.org/${chain}/vault/${address}/${slug}#overview`;
 }
 
-function getMorphoVault(chain, symbol) {
+function isTestVault(name, symbol) {
+  const s = (name + " " + symbol).toLowerCase();
+  return /test|tst|staging|dummy|fake|vaulter|abrc|base-test|not\s/.test(s);
+}
+
+async function loadMorphoYields() {
+  const url = "https://blue-api.morpho.org/graphql";
+  const results = [];
+  try {
+    for (const [chain, chainId] of Object.entries(MORPHO_CHAIN_IDS)) {
+      const query = JSON.stringify({
+        query: `{ vaults(where: { chainId_in: [${chainId}], assetSymbol_in: [${MORPHO_STABLES.map(s => `"${s}"`).join(",")}] }, first: 1000) { items { address name symbol asset { address symbol } state { totalAssetsUsd netApy fee } } } }`
+      });
+      const r = await fetch(url, { method: "POST", headers: { "Content-Type": "application/json" }, body: query });
+      const d = await r.json();
+      const vaults = d?.data?.vaults?.items || [];
+      for (const v of vaults) {
+        const tvl = v.state?.totalAssetsUsd || 0;
+        const apy = v.state?.netApy || 0;
+        if (tvl >= MORPHO_MIN_TVL && apy > 0 && apy <= MORPHO_MAX_APY && !isTestVault(v.name, v.symbol)) {
+          results.push({
+            project: "morpho-blue",
+            chain: chain,
+            chainDisplay: chain.charAt(0).toUpperCase() + chain.slice(1),
+            name: v.name,
+            symbol: v.symbol,
+            address: v.address,
+            asset: v.asset?.symbol || cleanSymbol(v.symbol),
+            apy: apy * 100,
+            tvlUsd: tvl,
+            link: morphoVaultUrl(chain, v.address, v.name),
+          });
+        }
+      }
+    }
+  } catch (e) { console.error("morpho yields", e); }
+  return results;
+}
+
+// Other platforms still via DeFiLlama
+const OTHER_PLATFORMS = ["aave-v3", "moonwell-lending", "jupiter-lend", "kamino-lend"];
+const OTHER_STABLES = ["usdc","usdt","dai","susde","usde","pyusd","usds"];
+const OTHER_CHAINS = ["base", "solana", "ethereum"];
+
+async function loadOtherYields() {
+  try {
+    const r = await cachedFetch("yields", "https://yields.llama.fi/pools");
+    const pools = r.data || [];
+    return pools.filter(p => {
+      const project = (p.project || "").toLowerCase();
+      const chain = (p.chain || "").toLowerCase();
+      const sym = (p.symbol || "").toLowerCase();
+      const apy = p.apy || 0;
+      const tvl = p.tvlUsd || 0;
+      return (
+        OTHER_PLATFORMS.includes(project) &&
+        OTHER_CHAINS.includes(chain) &&
+        apy > 0 && apy <= 50 &&
+        tvl >= 100000 &&
+        OTHER_STABLES.some(s => sym.includes(s))
+      );
+    }).map(p => ({
+      project: p.project,
+      chain: p.chain.toLowerCase(),
+      chainDisplay: p.chain,
+      name: cleanSymbol(p.symbol),
+      symbol: p.symbol,
+      address: null,
+      asset: cleanSymbol(p.symbol),
+      apy: p.apy,
+      tvlUsd: p.tvlUsd,
+      link: yieldDeepLink(p.project, p.chain, p.symbol, p.underlyingTokens),
+    }));
+  } catch (e) { console.error("other yields", e); return []; }
+}
+
+// Original deep-link helper for non-Morpho platforms (kept)
+function yieldDeepLink(project, chain, symbol, underlyingTokens) {
   const chainLower = chain.toLowerCase();
-  const key = `${chainLower}-${symbol.toUpperCase()}`;
-  const vaults = morphoVaultLookup[key];
-  if (!vaults || vaults.length === 0) return null;
-  // Prefer stablecoin asset vault
-  const stables = ["USDC", "USDT", "DAI", "SUSDE", "USDE", "PYUSD", "USDS"];
-  const match = vaults.find(v => stables.includes(v.asset?.symbol?.toUpperCase())) || vaults[0];
-  const slug = match.name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
-  return { address: match.address, name: match.name, slug };
+  const token = underlyingTokens?.[0] || "";
+  const sym = cleanSymbol(symbol);
+  if (project === "aave-v3") {
+    if (chainLower === "base" && token) return `https://app.aave.com/?marketName=proto_base_v3&asset=${token}`;
+    if (chainLower === "ethereum" && token) return `https://app.aave.com/?marketName=proto_mainnet_v3&asset=${token}`;
+    if (chainLower === "arbitrum" && token) return `https://app.aave.com/?marketName=proto_arbitrum_v3&asset=${token}`;
+    if (chainLower === "optimism" && token) return `https://app.aave.com/?marketName=proto_optimism_v3&asset=${token}`;
+    if (chainLower === "polygon" && token) return `https://app.aave.com/?marketName=proto_polygon_v3&asset=${token}`;
+    return `https://app.aave.com/?asset=${token}`;
+  }
+  if (project === "moonwell-lending") return `https://moonwell.fi/${chainLower}?market=${sym}`;
+  if (project === "jupiter-lend") return token ? `https://jup.ag/lend?token=${token}` : "https://jup.ag/lend";
+  if (project === "kamino-lend") return "https://app.kamino.finance/lend";
+  return `https://defillama.com/yields?project=${project}&chain=${chainLower}`;
 }
 
 function cleanSymbol(sym) {
@@ -421,73 +483,54 @@ async function loadYields(filterChain) {
   const newEl = document.getElementById("new-yield-list");
   if (!listEl) return;
 
-  // Store previous yields to detect new ones
   const prevKey = "dd_prev_yields";
   let prevYields = {};
   try { prevYields = JSON.parse(localStorage.getItem(prevKey) || "{}"); } catch {}
 
   try {
-    const r = await cachedFetch("yields", "https://yields.llama.fi/pools");
-    const pools = r.data || [];
+    // Load Morpho directly + others via DeFiLlama in parallel
+    const [morphoVaults, otherPools] = await Promise.all([
+      loadMorphoYields(),
+      loadOtherYields()
+    ]);
 
-    // Filter: target platforms + stablecoin symbols + min TVL
-    let filtered = pools.filter(p => {
-      const project = (p.project || "").toLowerCase();
-      const sym = (p.symbol || "").toLowerCase();
-      const apy = p.apy || 0;
-      const tvl = p.tvlUsd || 0;
-      return (
-        YIELD_PLATFORMS.includes(project) &&
-        apy > 0 &&
-        tvl > 50000 &&
-        YIELD_STABLES.some(s => sym.includes(s))
-      );
-    });
+    let all = [...morphoVaults, ...otherPools];
 
-    // Apply chain filter if specified
+    // Apply chain filter
     if (filterChain && filterChain !== "all") {
-      const targetChainName = YIELD_CHAIN_MAP[filterChain] || filterChain;
-      filtered = filtered.filter(p => (p.chain || "").toLowerCase() === filterChain);
+      all = all.filter(p => p.chain === filterChain);
     }
 
     // Sort by APY descending
-    filtered.sort((a, b) => (b.apy || 0) - (a.apy || 0));
+    all.sort((a, b) => b.apy - a.apy);
 
-    // Top 12 for main list
-    const top = filtered.slice(0, 12);
+    const top = all.slice(0, 12);
 
     // Build main list
     listEl.innerHTML = top.map(p => {
-      const sym = cleanSymbol(p.symbol);
-      const name = yieldDisplayName(p.project, p.chain, p.symbol);
-      const proj = yieldProjectLabel(p.project);
-      const chain = p.chain;
-      const apy = (p.apy || 0).toFixed(2);
-      const tvl = p.tvlUsd || 0;
-      const poolKey = `${proj}-${chain}-${sym}`;
+      const apyStr = p.apy.toFixed(2);
+      const tvlStr = p.tvlUsd >= 1e6 ? "$" + (p.tvlUsd/1e6).toFixed(1) + "M" : "$" + (p.tvlUsd/1e3).toFixed(0) + "K";
+      const poolKey = `${p.project}-${p.chain}-${p.symbol}`;
       const isNew = !prevYields[poolKey];
-      const link = yieldDeepLink(p.project, p.chain, p.symbol, p.underlyingTokens);
-      const tvlStr = tvl >= 1e6 ? "$" + (tvl/1e6).toFixed(1) + "M" : "$" + (tvl/1e3).toFixed(0) + "K";
-      return `<a href="${link}" target="_blank" rel="noopener" class="yield-item-link" title="Open ${name} on ${chain}">
-        <div class="yield-item ${apy > 6 ? "high" : ""} ${isNew ? "new" : ""}">
+      const proj = yieldProjectLabel(p.project);
+      return `<a href="${p.link}" target="_blank" rel="noopener" class="yield-item-link" title="Open ${p.name} on ${p.chainDisplay}">
+        <div class="yield-item ${p.apy > 6 ? "high" : ""} ${isNew ? "new" : ""}">
           <div class="yield-main">
-            <span class="yield-name">${name} <span class="yield-chain-badge">${chain}</span></span>
+            <span class="yield-name">${p.name} <span class="yield-chain-badge">${p.chainDisplay}</span></span>
             <span class="yield-project">${proj}</span>
           </div>
           <span class="yield-tvl">${tvlStr}</span>
-          <span class="yield-apy">${apy}%</span>
+          <span class="yield-apy">${apyStr}%</span>
           <span class="yield-link-icon">↗</span>
         </div>
       </a>`;
     }).join("");
 
-    // NEW: high yields not seen in previous refresh (>4% APY, newly appeared or APY jumped)
-    const jumped = filtered.filter(p => {
-      const sym = cleanSymbol(p.symbol);
-      const proj = yieldProjectLabel(p.project);
-      const poolKey = `${proj}-${p.chain}-${sym}`;
+    // NEW: pools that are new or APY jumped >1% since last refresh
+    const jumped = all.filter(p => {
+      const poolKey = `${p.project}-${p.chain}-${p.symbol}`;
       const prevApy = prevYields[poolKey];
-      return (p.apy || 0) > 4 && (!prevApy || (p.apy - prevApy) > 1);
+      return p.apy > 4 && (!prevApy || (p.apy - prevApy) > 1);
     }).slice(0, 6);
 
     if (newEl) {
@@ -495,15 +538,15 @@ async function loadYields(filterChain) {
         newEl.innerHTML = `<div class="yield-item" style="border-left-color:var(--text-muted);opacity:0.6"><div>No new high yields this refresh</div></div>`;
       } else {
         newEl.innerHTML = jumped.map(p => {
-          const sym = cleanSymbol(p.symbol);
+          const apyStr = p.apy.toFixed(2);
           const proj = yieldProjectLabel(p.project);
-          const apy = (p.apy || 0).toFixed(2);
-          const link = yieldDeepLink(p.project, p.chain, p.symbol, p.underlyingTokens);
-          return `<a href="${link}" target="_blank" rel="noopener" class="yield-item-link" title="Open ${proj} ${sym} on ${p.chain}">
+          return `<a href="${p.link}" target="_blank" rel="noopener" class="yield-item-link" title="Open ${p.name} on ${p.chainDisplay}">
             <div class="yield-item new">
-              <div><span class="yield-project">${proj}</span> <span class="yield-chain">${p.chain}</span></div>
-              <span class="yield-symbol">${sym}</span>
-              <span class="yield-apy">${apy}%</span>
+              <div class="yield-main">
+                <span class="yield-name">${p.name} <span class="yield-chain-badge">${p.chainDisplay}</span></span>
+                <span class="yield-project">${proj}</span>
+              </div>
+              <span class="yield-apy">${apyStr}%</span>
               <span class="yield-link-icon">↗</span>
             </div>
           </a>`;
@@ -513,10 +556,8 @@ async function loadYields(filterChain) {
 
     // Save current yields as prev for next refresh
     const newPrev = {};
-    filtered.forEach(p => {
-      const sym = cleanSymbol(p.symbol);
-      const proj = yieldProjectLabel(p.project);
-      newPrev[`${proj}-${p.chain}-${sym}`] = p.apy || 0;
+    all.forEach(p => {
+      newPrev[`${p.project}-${p.chain}-${p.symbol}`] = p.apy;
     });
     localStorage.setItem(prevKey, JSON.stringify(newPrev));
 
@@ -694,9 +735,6 @@ async function refreshAll() {
   document.getElementById("last-updated").textContent = "Updating…";
 
   try {
-    // Pre-load Morpho vault metadata so yield rows can link to exact vaults
-    await loadMorphoVaults();
-
     // Phase 1: CoinGecko data (3 calls) + independent APIs (4 calls) in parallel
     const [cgPrices, , , , ,] = await Promise.all([
       loadCoinGeckoData(),  // returns { ethPrice, maticPrice, bnbPrice }
