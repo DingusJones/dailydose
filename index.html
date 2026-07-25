@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>DailyDose — Crypto Dashboard</title>
+  <meta name="description" content="Your daily dose of crypto: trending news, whale alerts, and top coins by chain." />
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E%F0%9F%92%AC%3C/text%3E%3C/svg%3E" />
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">
+      <span class="logo">💊</span>
+      <h1>DailyDose</h1>
+      <span class="tagline">your daily crypto pulse</span>
+    </div>
+    <div class="meta">
+      <span id="last-updated" class="muted">Loading…</span>
+      <button id="refresh-btn" class="btn">↻ Refresh</button>
+    </div>
+  </header>
+
+  <main>
+    <!-- SECTION 0: TradingView Ticker Tape -->
+    <section class="row" style="margin-bottom:0">
+      <div class="card span-3" style="padding:0;overflow:hidden">
+        <div id="tradingview-ticker" style="width:100%"></div>
+      </div>
+    </section>
+
+    <!-- SECTION 1: Market Snapshot -->
+    <section class="grid market-grid" id="market-grid">
+      <div class="card stat-card">
+        <div class="stat-label">Global Market Cap</div>
+        <div class="stat-value" id="global-mcap">—</div>
+        <div class="stat-change" id="global-mcap-change">—</div>
+      </div>
+      <div class="card stat-card">
+        <div class="stat-label">24h Volume</div>
+        <div class="stat-value" id="global-vol">—</div>
+        <div class="stat-change muted">across all exchanges</div>
+      </div>
+      <div class="card stat-card">
+        <div class="stat-label">BTC Dominance</div>
+        <div class="stat-value" id="btc-dom">—</div>
+        <div class="stat-change muted">of total market</div>
+      </div>
+      <div class="card stat-card">
+        <div class="stat-label">ETH Gas</div>
+        <div class="stat-value" id="eth-gas">—</div>
+        <div class="stat-change muted">gwei</div>
+      </div>
+    </section>
+
+    <!-- SECTION 1.5: TradingView Live Chart -->
+    <section class="row">
+      <div class="card span-3">
+        <div class="card-header">
+          <h2>📈 Live Chart — TradingView</h2>
+          <a href="https://www.tradingview.com/chart/?symbol=BINANCE:BTCUSDT" target="_blank" rel="noopener" class="btn" style="font-size:12px;text-decoration:none">Open in TradingView ↗</a>
+        </div>
+        <div id="tradingview-chart" style="height:400px;width:100%;border-radius:8px;overflow:hidden;"></div>
+      </div>
+    </section>
+
+    <!-- SECTION 2: Trending Coins + Top by Chain -->
+    <section class="row">
+      <div class="card span-1">
+        <h2>🔥 Trending Coins</h2>
+        <p class="muted small">Most searched in the last 24h</p>
+        <ol id="trending-list" class="trending-list"></ol>
+      </div>
+
+      <div class="card span-2">
+        <div class="card-header">
+          <h2>🏆 Top Coins by Chain</h2>
+          <select id="chain-select" class="select">
+            <option value="all">All Chains</option>
+            <option value="ethereum">Ethereum</option>
+            <option value="solana">Solana</option>
+            <option value="binance-smart-chain">BNB Chain</option>
+            <option value="polygon-pos">Polygon</option>
+            <option value="arbitrum-one">Arbitrum</option>
+            <option value="optimistic-ethereum">Optimism</option>
+            <option value="base">Base</option>
+            <option value="avalanche">Avalanche</option>
+          </select>
+        </div>
+        <div class="table-wrap">
+          <table class="coins-table">
+            <thead>
+              <tr>
+                <th>#</th>
+                <th>Coin</th>
+                <th>Price</th>
+                <th>24h</th>
+                <th>Market Cap</th>
+                <th>Volume</th>
+                <th>7d</th>
+              </tr>
+            </thead>
+            <tbody id="coins-tbody"></tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <!-- SECTION 3: DeFi TVL by Chain (DeFiLlama) -->
+    <section class="row">
+      <div class="card span-3">
+        <h2>🏦 DeFi TVL by Chain</h2>
+        <p class="muted small">Total value locked across all DeFi protocols — <a href="https://defillama.com" target="_blank" rel="noopener" class="muted">defillama.com</a></p>
+        <div class="tvl-list" id="tvl-list"></div>
+      </div>
+    </section>
+
+    <!-- SECTION 4: Whale Alerts + News side by side -->
+    <section class="row">
+      <div class="card span-1">
+        <h2>🐋 Whale Watch</h2>
+        <p class="muted small">Large transactions &gt; $1M</p>
+        <div id="whale-list" class="whale-list"></div>
+      </div>
+
+      <div class="card span-2">
+        <h2>📰 Crypto News</h2>
+        <p class="muted small">Latest from around the web</p>
+        <div id="news-list" class="news-list"></div>
+      </div>
+    </section>
+
+    <!-- SECTION 5: Fear & Greed + BTC/ETH sparklines -->
+    <section class="row">
+      <div class="card span-1 fear-card">
+        <h2>😱 Fear &amp; Greed</h2>
+        <div class="fear-gauge" id="fear-gauge">
+          <div class="fear-value" id="fear-value">—</div>
+          <div class="fear-label" id="fear-label">Loading…</div>
+        </div>
+      </div>
+      <div class="card span-1">
+        <h2>₿ Bitcoin</h2>
+        <div id="btc-info" class="big-coin"></div>
+      </div>
+      <div class="card span-1">
+        <h2>Ξ Ethereum</h2>
+        <div id="eth-info" class="big-coin"></div>
+      </div>
+    </section>
+
+    <footer class="footer">
+      <p>DailyDose · Data: <a href="https://www.coingecko.com" target="_blank" rel="noopener">CoinGecko</a>, <a href="https://defillama.com" target="_blank" rel="noopener">DeFiLlama</a>, <a href="https://alternative.me/crypto/fear-and-greed-index/" target="_blank" rel="noopener">Alternative.me</a></p>
+      <p class="muted small">Not financial advice. Built with 💊 by Herbie for Jay.</p>
+    </footer>
+  </main>
+
+  <script src="app.js"></script>
+</body>
+</html>
