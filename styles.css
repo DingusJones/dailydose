@@ -25,6 +25,9 @@ html, body {
   font-size: 14px;
   line-height: 1.5;
   -webkit-font-smoothing: antialiased;
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+  overflow-x: hidden;
 }
 
 a { color: var(--accent); text-decoration: none; }
@@ -106,10 +109,124 @@ main {
 .span-2 { grid-column: span 2; }
 .span-3 { grid-column: span 3; }
 
+/* TABLET (≤900px) */
 @media (max-width: 900px) {
-  .row { grid-template-columns: 1fr; }
-  .market-grid { grid-template-columns: repeat(2, 1fr); }
+  main { padding: 16px 16px; }
+  .row { grid-template-columns: 1fr; gap: 14px; margin-bottom: 14px; }
+  .market-grid { grid-template-columns: repeat(2, 1fr); gap: 12px; }
   .span-1, .span-2, .span-3 { grid-column: span 1; }
+  .card { padding: 16px; border-radius: 10px; }
+  .topbar { padding: 12px 16px; }
+  .brand h1 { font-size: 18px; }
+  .logo { font-size: 22px; }
+  .disclaimer-badge { font-size: 9px; padding: 2px 8px; }
+  .gauge-value { font-size: 64px; }
+}
+
+/* MOBILE (≤600px) */
+@media (max-width: 600px) {
+  main { padding: 12px 12px; }
+  .row { gap: 12px; margin-bottom: 12px; }
+  .market-grid { grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 12px; }
+  .card { padding: 14px; border-radius: 10px; }
+  .card h2 { font-size: 14px; }
+  .topbar {
+    padding: 10px 12px;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+  .brand { gap: 8px; }
+  .brand h1 { font-size: 17px; }
+  .logo { font-size: 20px; }
+  .disclaimer-badge {
+    font-size: 8px;
+    padding: 2px 6px;
+    letter-spacing: 0.2px;
+  }
+  .meta { gap: 8px; }
+  #last-updated { font-size: 11px; }
+  .btn { padding: 6px 12px; font-size: 12px; }
+
+  /* Stat cards — centered text on mobile */
+  .stat-card { align-items: center; text-align: center; gap: 3px; }
+  .stat-label { font-size: 10px; }
+  .stat-value { font-size: 18px; }
+  .stat-change { font-size: 11px; }
+
+  /* Coin table — horizontal scroll, compact */
+  .table-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+  .coins-table { font-size: 12px; min-width: 500px; }
+  .coins-table th { padding: 8px 8px; font-size: 10px; }
+  .coins-table td { padding: 8px 8px; }
+  .coin-cell img { width: 18px; height: 18px; }
+  .coin-cell span { font-size: 12px; }
+  .sparkline { width: 60px; height: 24px; }
+
+  /* Trending — tighter */
+  .trending-list li { padding: 8px 0; gap: 6px; }
+  .trending-list .name { font-size: 13px; }
+  .trending-list .symbol { font-size: 11px; }
+  .trending-list .price-change { font-size: 11px; }
+
+  /* TVL — stack on mobile */
+  .tvl-row { flex-wrap: wrap; gap: 6px; }
+  .tvl-name { min-width: 0; flex: 1; font-size: 12px; }
+  .tvl-bar-wrap { flex-basis: 100%; order: 3; }
+  .tvl-tvl { min-width: 0; font-size: 12px; }
+
+  /* Yield items — wrap content */
+  .yield-item {
+    flex-wrap: wrap;
+    gap: 4px 8px;
+    padding: 8px 10px;
+    font-size: 11px;
+  }
+  .yield-project { font-size: 10px; }
+  .yield-chain { font-size: 9px; }
+  .yield-symbol { font-size: 11px; }
+  .yield-apy { font-size: 12px; }
+  .yield-tvl { font-size: 9px; }
+
+  /* Yield tabs — full width */
+  .yield-tabs { gap: 4px; }
+  .yield-tab { padding: 5px 10px; font-size: 10px; flex: 1; text-align: center; }
+
+  /* Fear & Greed — smaller on mobile */
+  .gauge-value { font-size: 56px; font-weight: 900; }
+  .gauge-track { height: 22px; }
+  .gauge-labels { font-size: 9px; }
+  .gauge-class { font-size: 11px; }
+
+  /* Big coin cards */
+  .big-coin-name { font-size: 16px; }
+  .big-coin-price { font-size: 20px; }
+  .big-coin-stats { gap: 8px; font-size: 11px; }
+
+  /* News */
+  .news-item { padding: 10px 0; }
+  .news-title { font-size: 13px; }
+  .news-meta { font-size: 10px; }
+
+  /* EVM tx table — horizontal scroll */
+  #evm-tx-table { min-width: 600px; font-size: 12px; }
+  #evm-tx-table th, #evm-tx-table td { padding: 8px; }
+
+  /* Footer */
+  .footer { padding: 16px 0; }
+  .footer p { font-size: 11px; margin: 3px 0; }
+
+  /* Chart container — shorter on mobile */
+  #tradingview-chart { height: 300px !important; }
+}
+
+/* VERY SMALL (≤380px) */
+@media (max-width: 380px) {
+  main { padding: 8px; }
+  .card { padding: 12px 10px; }
+  .market-grid { gap: 8px; }
+  .gauge-value { font-size: 44px; }
+  .brand h1 { font-size: 15px; }
+  .disclaimer-badge { display: none; }
 }
 
 /* CARDS */
