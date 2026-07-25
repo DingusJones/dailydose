@@ -167,6 +167,15 @@ main {
 .up { color: var(--green); }
 .down { color: var(--red); }
 
+/* SELECTED COIN ROW (click to chart) */
+.coin-row { cursor: pointer; transition: background 0.15s; }
+.coin-row:hover { background: var(--bg-3) !important; }
+.coin-row.selected-coin {
+  background: rgba(91, 140, 255, 0.15) !important;
+  border-left: 3px solid var(--accent);
+}
+.coin-row.selected-coin td:first-child { padding-left: 7px; }
+
 /* SELECT */
 .select {
   background: var(--bg-3);

@@ -126,16 +126,16 @@ function renderCoins(chain) {
   const tbody = document.getElementById("coins-tbody");
   let coins = allCoins;
   if (chain !== "all") {
-    // CoinGecko doesn't return chain in markets endpoint; use asset_platform_id
     coins = allCoins.filter(c => c.asset_platform_id === chain);
-    if (coins.length === 0) coins = allCoins; // fallback
+    if (coins.length === 0) coins = allCoins;
   }
   coins = coins.slice(0, 25);
   tbody.innerHTML = coins.map((c, i) => {
     const pct24 = c.price_change_percentage_24h;
     const pct7d = c.price_change_percentage_7d_in_currency;
     const color = pct24 >= 0 ? "#16c784" : "#ea3943";
-    return `<tr>
+    const tvSym = coinToTvSymbol(c);
+    return `<tr class="coin-row" data-tv="${tvSym}" data-name="${c.name}" style="cursor:pointer" title="Click to chart ${c.name} on TradingView">
       <td>${i + 1}</td>
       <td><div class="coin-cell">
         <img src="${c.image}" alt="" loading="lazy" onerror="this.style.display='none'">
@@ -149,6 +149,21 @@ function renderCoins(chain) {
       <td>${sparklineSvg(c.sparkline_in_7d?.price, color)}</td>
     </tr>`;
   }).join("");
+
+  // Add click handlers to each row — clicking swaps the TradingView chart
+  tbody.querySelectorAll(".coin-row").forEach(row => {
+    row.addEventListener("click", () => {
+      const tv = row.getAttribute("data-tv");
+      const name = row.getAttribute("data-name");
+      // Highlight selected row
+      tbody.querySelectorAll(".coin-row").forEach(r => r.classList.remove("selected-coin"));
+      row.classList.add("selected-coin");
+      // Reload TradingView with new symbol
+      loadTradingView(tv, name);
+      // Scroll to chart
+      document.getElementById("tradingview-chart").scrollIntoView({ behavior: "smooth", block: "center" });
+    });
+  });
 }
 
 // ─── 5. DeFi TVL by Chain (DeFiLlama) ───
@@ -278,9 +293,38 @@ async function loadBigCoins() {
   } catch (e) { console.error("bigcoins", e); }
 }
 
+// ─── Coin → TradingView symbol mapping ───
+// Maps CoinGecko coin IDs to TradingView ticker symbols (BINANCE exchange)
+const TV_SYMBOLS = {
+  bitcoin: "BINANCE:BTCUSDT", ethereum: "BINANCE:ETHUSDT", solana: "BINANCE:SOLUSDT",
+  binancecoin: "BINANCE:BNBUSDT", ripple: "BINANCE:XRPUSDT", dogecoin: "BINANCE:DOGEUSDT",
+  cardano: "BINANCE:ADAUSDT", "avalanche-2": "BINANCE:AVAXUSDT", polkadot: "BINANCE:DOTUSDT",
+  chainlink: "BINANCE:LINKUSDT", polygon: "BINANCE:POLUSDT", litecoin: "BINANCE:LTCUSDT",
+  tron: "BINANCE:TRXUSDT", "shiba-inu": "BINANCE:SHIBUSDT", uniswap: "BINANCE:UNIUSDT",
+  "bitcoin-cash": "BINANCE:BCHUSDT", near: "BINANCE:NEARUSDT", aptos: "BINANCE:APTUSDT",
+  arbitrum: "BINANCE:ARBUSDT", optimism: "BINANCE:OPUSDT", filecoin: "BINANCE:FILUSDT",
+  "render-token": "BINANCE:RNDRUSDT", "injective-protocol": "BINANCE:INJUSDT",
+  "the-graph": "BINANCE:GRTUSDT", sui: "BINANCE:SUIUSDT", pepe: "BINANCE:PEPEUSDT",
+  celestia: "BINANCE:TIAUSDT", starknet: "BINANCE:STRKUSDT", wormhole: "BINANCE:WUSDT",
+  "ethereum-classic": "BINANCE:ETCUSDT", stellar: "BINANCE:XLMUSDT", cosmos: "BINANCE:ATOMUSDT",
+  tezos: "BINANCE:XTZUSDT", aave: "BINANCE:AAVEUSDT", maker: "BINANCE:MKRUSDT",
+  "sei-network": "BINANCE:SEIUSDT", dymension: "BINANCE:DYMUSDT",
+};
+
+function coinToTvSymbol(coin) {
+  if (TV_SYMBOLS[coin.id]) return TV_SYMBOLS[coin.id];
+  // Fallback: use symbol + USDT on BINANCE
+  return "BINANCE:" + coin.symbol.toUpperCase() + "USDT";
+}
+
 // ─── 10. TradingView Chart Widget ───
-function loadTradingView() {
-  // TradingView embedded widget — BTC/USDT chart
+let currentChartSymbol = "BINANCE:BTCUSDT";
+let currentChartName = "Bitcoin";
+
+function loadTradingView(symbol, name) {
+  if (symbol) { currentChartSymbol = symbol; currentChartName = name || symbol; }
+
+  // TradingView embedded widget — chart for selected coin
   const container = document.getElementById("tradingview-chart");
   if (container) {
     const script = document.createElement("script");
@@ -288,7 +332,7 @@ function loadTradingView() {
     script.async = true;
     script.innerHTML = JSON.stringify({
       autosize: true,
-      symbol: "BINANCE:BTCUSDT",
+      symbol: currentChartSymbol,
       interval: "240",
       timezone: "America/Chicago",
       theme: "dark",
@@ -309,31 +353,41 @@ function loadTradingView() {
     container.appendChild(script);
   }
 
-  // TradingView Ticker Tape
-  const ticker = document.getElementById("tradingview-ticker");
-  if (ticker) {
-    const script = document.createElement("script");
-    script.src = "https://s3.tradingview.com/external-embedding/embed-widget-ticker-tape.js";
-    script.async = true;
-    script.innerHTML = JSON.stringify({
-      symbols: [
-        { proName: "BINANCE:BTCUSDT", title: "Bitcoin" },
-        { proName: "BINANCE:ETHUSDT", title: "Ethereum" },
-        { proName: "BINANCE:SOLUSDT", title: "Solana" },
-        { proName: "BINANCE:BNBUSDT", title: "BNB" },
-        { proName: "BINANCE:XRPUSDT", title: "XRP" },
-        { proName: "BINANCE:DOGEUSDT", title: "Dogecoin" },
-        { proName: "BINANCE:ADAUSDT", title: "Cardano" },
-        { proName: "BINANCE:AVAXUSDT", title: "Avalanche" },
-      ],
-      showSymbolLogo: true,
-      isTransparent: true,
-      displayMode: "adaptive",
-      colorTheme: "dark",
-      locale: "en",
-    });
-    ticker.innerHTML = "";
-    ticker.appendChild(script);
+  // Update chart title
+  const titleEl = document.getElementById("chart-title");
+  if (titleEl) titleEl.textContent = "📈 " + currentChartName + " — Live Chart";
+
+  // Update external TradingView link
+  const extLink = document.getElementById("tv-ext-link");
+  if (extLink) extLink.href = "https://www.tradingview.com/chart/?symbol=" + currentChartSymbol;
+
+  // TradingView Ticker Tape (load once on init, not on every coin click)
+  if (symbol === undefined) {
+    const ticker = document.getElementById("tradingview-ticker");
+    if (ticker) {
+      const script = document.createElement("script");
+      script.src = "https://s3.tradingview.com/external-embedding/embed-widget-ticker-tape.js";
+      script.async = true;
+      script.innerHTML = JSON.stringify({
+        symbols: [
+          { proName: "BINANCE:BTCUSDT", title: "Bitcoin" },
+          { proName: "BINANCE:ETHUSDT", title: "Ethereum" },
+          { proName: "BINANCE:SOLUSDT", title: "Solana" },
+          { proName: "BINANCE:BNBUSDT", title: "BNB" },
+          { proName: "BINANCE:XRPUSDT", title: "XRP" },
+          { proName: "BINANCE:DOGEUSDT", title: "Dogecoin" },
+          { proName: "BINANCE:ADAUSDT", title: "Cardano" },
+          { proName: "BINANCE:AVAXUSDT", title: "Avalanche" },
+        ],
+        showSymbolLogo: true,
+        isTransparent: true,
+        displayMode: "adaptive",
+        colorTheme: "dark",
+        locale: "en",
+      });
+      ticker.innerHTML = "";
+      ticker.appendChild(script);
+    }
   }
 }
 
