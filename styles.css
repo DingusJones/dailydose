@@ -167,7 +167,11 @@ main {
 .trending-list li:last-child { border-bottom: 0; }
 .trending-list .rank { color: var(--text-muted); font-size: 12px; min-width: 18px; }
 .trending-list .name { font-weight: 600; }
+.trending-list .name a { color: var(--text); text-decoration: none; }
+.trending-list .name a:hover { color: var(--accent); }
 .trending-list .symbol { color: var(--text-muted); font-size: 12px; }
+.trending-list .symbol a { color: var(--text-muted); text-decoration: none; }
+.trending-list .symbol a:hover { color: var(--accent); }
 .trending-list .price-change { margin-left: auto; font-size: 12px; font-weight: 600; }
 
 /* TABLE */
@@ -303,12 +307,12 @@ main {
   padding: 0 2px;
 }
 
-/* Value display */
+/* Value display — large, fills the card */
 .gauge-value {
-  font-size: 42px;
-  font-weight: 800;
+  font-size: 88px;
+  font-weight: 900;
   line-height: 1;
-  margin-top: 6px;
+  margin-top: 8px;
 }
 .gauge-class {
   color: var(--text-muted);

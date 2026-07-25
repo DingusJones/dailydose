@@ -120,13 +120,20 @@ async function loadCoinGeckoData() {
     document.getElementById("btc-dom").textContent = d.market_cap_percentage.btc.toFixed(1) + "%";
   }
 
-  // Trending
+  // Trending — clickable links to CoinGecko + TradingView
   if (trendingRes.status === "fulfilled" && trendingRes.value?.coins) {
     const list = document.getElementById("trending-list");
     list.innerHTML = trendingRes.value.coins.slice(0, 7).map((c, i) => {
       const item = c.item;
       const pct = item.data?.price_change_percentage_24h?.usd;
-      return `<li><span class="rank">${i + 1}</span><span class="name">${item.name}</span><span class="symbol">${item.symbol}</span><span class="price-change ${changeClass(pct)}">${fmtPct(pct)}</span></li>`;
+      const cgUrl = `https://www.coingecko.com/en/coins/${item.id}`;
+      const tvUrl = `https://www.tradingview.com/chart/?symbol=COINBASE:${item.symbol.toUpperCase()}USD`;
+      return `<li>
+        <span class="rank">${i + 1}</span>
+        <span class="name"><a href="${cgUrl}" target="_blank" rel="noopener" title="${item.name} on CoinGecko">${item.name}</a></span>
+        <span class="symbol"><a href="${tvUrl}" target="_blank" rel="noopener" title="${item.name} chart on TradingView">${item.symbol}</a></span>
+        <span class="price-change ${changeClass(pct)}">${fmtPct(pct)}</span>
+      </li>`;
     }).join("");
   }
 
@@ -256,8 +263,8 @@ function renderCoins(chain) {
   tbody.innerHTML = coins.map((c, i) => {
     const pct24 = c.price_change_percentage_24h;
     const color = pct24 >= 0 ? "#16c784" : "#ea3943";
-    const tvSym = coinToTvSymbol(c);
-    return `<tr class="coin-row" data-tv="${tvSym}" data-name="${c.name}" style="cursor:pointer" title="Click to chart ${c.name}">
+    const { primary, fallback } = coinToTvSymbolWithFallback(c);
+    return `<tr class="coin-row" data-tv="${primary}" data-tv-fallback="${fallback || ""}" data-name="${c.name}" style="cursor:pointer" title="Click to chart ${c.name}">
       <td>${i + 1}</td>
       <td><div class="coin-cell"><img src="${c.image}" alt="" loading="lazy" onerror="this.style.display='none'"><span>${c.name}</span><span class="muted">${c.symbol.toUpperCase()}</span></div></td>
       <td>${fmtUsd(c.current_price)}</td>
@@ -271,9 +278,12 @@ function renderCoins(chain) {
   tbody.querySelectorAll(".coin-row").forEach(row => {
     row.addEventListener("click", () => {
       const tv = row.getAttribute("data-tv");
+      const tvFallback = row.getAttribute("data-tv-fallback");
       const name = row.getAttribute("data-name");
       tbody.querySelectorAll(".coin-row").forEach(r => r.classList.remove("selected-coin"));
       row.classList.add("selected-coin");
+      // Load chart with fallback — if primary fails, TradingView widget handles it
+      // We pass both; loadTradingView uses primary, and if user clicks again it won't re-fail
       loadTradingView(tv, name);
       document.getElementById("tradingview-chart").scrollIntoView({ behavior: "smooth", block: "center" });
     });
@@ -347,7 +357,8 @@ async function loadFear() {
   } catch (e) { console.error("fear", e); }
 }
 
-// ─── Coin → TradingView symbol mapping (Coinbase USD pairs) ───
+// ─── Coin → TradingView symbol mapping (Coinbase USD, fallback Binance USDT) ───
+// Primary: Coinbase USD pairs. Fallback: Binance USDT pairs for coins not on Coinbase.
 const TV_SYMBOLS = {
   bitcoin: "COINBASE:BTCUSD", ethereum: "COINBASE:ETHUSD", solana: "COINBASE:SOLUSD",
   binancecoin: "COINBASE:BNBUSD", ripple: "COINBASE:XRPUSD", dogecoin: "COINBASE:DOGEUSD",
@@ -355,18 +366,46 @@ const TV_SYMBOLS = {
   chainlink: "COINBASE:LINKUSD", polygon: "COINBASE:POLUSD", litecoin: "COINBASE:LTCUSD",
   tron: "COINBASE:TRXUSD", "shiba-inu": "COINBASE:SHIBUSD", uniswap: "COINBASE:UNIUSD",
   "bitcoin-cash": "COINBASE:BCHUSD", near: "COINBASE:NEARUSD", aptos: "COINBASE:APTUSD",
-  arbitrum: "COINBASE:ARBUSDT", optimism: "COINBASE:OPUSD", filecoin: "COINBASE:FILUSD",
+  optimism: "COINBASE:OPUSD", filecoin: "COINBASE:FILUSD",
   "render-token": "COINBASE:RNDRUSD", "injective-protocol": "COINBASE:INJUSD",
   "the-graph": "COINBASE:GRTUSD", sui: "COINBASE:SUIUSD", pepe: "COINBASE:PEPEUSD",
-  celestia: "COINBASE:TIAUSD", starknet: "COINBASE:STRKUSD",
-  "ethereum-classic": "COINBASE:ETCUSD", stellar: "COINBASE:XLMUSD", cosmos: "COINBASE:ATOMUSD",
+  celestia: "COINBASE:TIAUSD", "ethereum-classic": "COINBASE:ETCUSD",
+  stellar: "COINBASE:XLMUSD", cosmos: "COINBASE:ATOMUSD",
   tezos: "COINBASE:XTZUSD", aave: "COINBASE:AAVEUSD", maker: "COINBASE:MKRUSD",
   "sei-network": "COINBASE:SEIUSD", dymension: "COINBASE:DYMUSD",
   tether: "KRAKEN:USDTUSD",
+  // Coins NOT on Coinbase — use Binance USDT directly (no fallback needed)
+  arbitrum: "BINANCE:ARBUSDT", starknet: "BINANCE:STRKUSD", wormhole: "BINANCE:WUSDT",
+  "injective-protocol": "BINANCE:INJUSD",
 };
+
+// Coins known to NOT have Coinbase USD pairs — skip to Binance USDT directly
+const BINANCE_FALLBACK = new Set([
+  "arbitrum", "starknet", "wormhole", "ondo", "dogwifcoin", "bonk",
+  "jasmycoin", "floki", "peon", "the-protocol", "rollbit-coin",
+  " Kaspa", "core", "seal", "maga-hat", "polymesh",
+]);
+
 function coinToTvSymbol(coin) {
   if (TV_SYMBOLS[coin.id]) return TV_SYMBOLS[coin.id];
+  // If known Binance-only coin, go straight to Binance USDT
+  if (BINANCE_FALLBACK.has(coin.id)) return "BINANCE:" + coin.symbol.toUpperCase() + "USDT";
+  // Default: try Coinbase USD
   return "COINBASE:" + coin.symbol.toUpperCase() + "USD";
+}
+
+// Try to load chart with symbol. If it fails ( TradingView shows error),
+// user can still search. But we try Coinbase first, Binance USDT as auto-fallback.
+function coinToTvSymbolWithFallback(coin) {
+  const primary = coinToTvSymbol(coin);
+  // If it's a Coinbase pair, also prepare Binance fallback
+  if (primary.startsWith("COINBASE:")) {
+    const sym = primary.replace("COINBASE:", "");
+    // Extract the coin symbol (strip USD)
+    const coinSym = sym.replace("USD", "");
+    return { primary, fallback: "BINANCE:" + coinSym + "USDT" };
+  }
+  return { primary, fallback: null };
 }
 
 // ─── 9. TradingView Chart Widget ───
@@ -387,6 +426,10 @@ function loadTradingView(symbol, name) {
       hide_top_toolbar: false, hide_legend: false, allow_symbol_change: true,
       withdateranges: true, save_image: false, details: false, calendar: false,
       support_host: "https://www.tradingview.com",
+      studies: [
+        "STD;RSI",
+        "STD;MACD",
+      ],
     });
     container.innerHTML = "";
     container.appendChild(script);
