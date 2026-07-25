@@ -6,12 +6,12 @@
   <title>DailyDose — Crypto Dashboard</title>
   <meta name="description" content="Your daily dose of crypto: trending news, whale alerts, and top coins by chain." />
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E%F0%9F%92%AC%3C/text%3E%3C/svg%3E" />
-  <link rel="stylesheet" href="styles.css?v=10" />
+  <link rel="stylesheet" href="styles.css?v=11" />
 </head>
 <body>
   <header class="topbar">
     <div class="brand">
-      <img src="pepe.jpg?v=6" alt="Pepe" class="pepe-img" width="40" height="44" />
+      <img src="pepe.jpg?v=7" alt="Pepe" class="pepe-img" width="40" height="44" />
       <span class="logo">💊</span>
       <h1>DailyDose</h1>
       <span class="disclaimer-badge">⚠ Not Financial Advice</span>
@@ -65,15 +65,18 @@
       </div>
     </section>
 
-    <!-- SECTION 2: Trending Coins + Top by Chain -->
+    <!-- SECTION 2a: Trending Coins -->
     <section class="row">
-      <div class="card span-1">
+      <div class="card span-3">
         <h2>🔥 Trending Coins</h2>
         <p class="muted small">Most searched in the last 24h</p>
         <ol id="trending-list" class="trending-list"></ol>
       </div>
+    </section>
 
-      <div class="card span-2">
+    <!-- SECTION 2b: Top Coins by Chain -->
+    <section class="row">
+      <div class="card span-3">
         <div class="card-header">
           <h2>🏆 Top Coins by Chain</h2>
           <select id="chain-select" class="select">
@@ -211,6 +214,6 @@
     </footer>
   </main>
 
-  <script src="app.js?v=10"></script>
+  <script src="app.js?v=11"></script>
 </body>
 </html>

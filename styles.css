@@ -193,14 +193,6 @@ main {
   .coin-cell span { font-size: 12px; }
   .sparkline { width: 60px; height: 24px; }
 
-  /* Trending + Top Coins cards: constrain and center on mobile */
-  .row > .card.span-1, .row > .card.span-2 {
-    max-width: 100%;
-    margin-left: auto;
-    margin-right: auto;
-    box-sizing: border-box;
-  }
-
   /* Trending — centered, tighter */
   .trending-list { text-align: center; padding-left: 0; }
   .trending-list li { padding: 8px 0; gap: 6px; justify-content: center; }
@@ -319,10 +311,11 @@ main {
 .stat-change.down { color: var(--red); }
 
 /* TRENDING */
-.trending-list { list-style: none; padding: 0; margin: 14px 0 0 0; }
+.trending-list { list-style: none; padding: 0; margin: 14px 0 0 0; text-align: center; }
 .trending-list li {
   display: flex;
   align-items: center;
+  justify-content: center;
   gap: 10px;
   padding: 10px 0;
   border-bottom: 1px solid var(--border);
@@ -335,13 +328,13 @@ main {
 .trending-list .symbol { color: var(--text-muted); font-size: 12px; }
 .trending-list .symbol a { color: var(--text-muted); text-decoration: none; }
 .trending-list .symbol a:hover { color: var(--accent); }
-.trending-list .price-change { margin-left: auto; font-size: 12px; font-weight: 600; }
+.trending-list .price-change { font-size: 12px; font-weight: 600; }
 
 /* TABLE */
-.table-wrap { overflow-x: auto; }
-.coins-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+.table-wrap { overflow-x: auto; text-align: center; }
+.coins-table { width: 100%; border-collapse: collapse; font-size: 13px; margin: 0 auto; }
 .coins-table th {
-  text-align: right;
+  text-align: center;
   padding: 10px 12px;
   color: var(--text-muted);
   font-weight: 500;
@@ -350,10 +343,8 @@ main {
   letter-spacing: 0.5px;
   border-bottom: 1px solid var(--border);
 }
-.coins-table th:first-child, .coins-table th:nth-child(2) { text-align: left; }
-.coins-table td { padding: 12px; border-bottom: 1px solid var(--border); text-align: right; }
-.coins-table td:first-child, .coins-table td:nth-child(2) { text-align: left; }
-.coin-cell { display: flex; align-items: center; gap: 8px; }
+.coins-table td { padding: 12px; border-bottom: 1px solid var(--border); text-align: center; }
+.coin-cell { display: inline-flex; align-items: center; gap: 8px; }
 .coin-cell img { width: 20px; height: 20px; border-radius: 50%; }
 .up { color: var(--green); }
 .down { color: var(--red); }
