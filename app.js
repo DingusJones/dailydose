@@ -85,22 +85,90 @@ async function loadGas() {
   try {
     const r = await fetchJson("https://api.etherscan.io/v2/api?chainid=1&module=gastracker&action=gasoracle");
     if (r.status === "1" && r.result) {
-      // FastGasPrice is in gwei already in V2
       const fast = parseFloat(r.result.FastGasPrice);
       const standard = parseFloat(r.result.ProposeGasPrice);
-      document.getElementById("eth-gas").textContent = fast.toFixed(1);
+      // Show 2 decimal places for precision
+      document.getElementById("eth-gas").textContent = fast.toFixed(2);
     } else {
       throw new Error("Etherscan API error");
     }
   } catch {
-    // Fallback: try ethplorer
     try {
       const r2 = await fetchJson("https://api.ethplorer.io/getGasPrice?apiKey=free");
-      document.getElementById("eth-gas").textContent = (r2.gasPrice / 1e9).toFixed(1);
+      document.getElementById("eth-gas").textContent = (r2.gasPrice / 1e9).toFixed(2);
     } catch {
       document.getElementById("eth-gas").textContent = "—";
     }
   }
+}
+
+// ─── 2b. EVM Chain Transaction Costs (via public RPCs + CoinGecko prices) ───
+const EVM_CHAINS = [
+  { name: "Ethereum", rpc: "https://ethereum.publicnode.com", tokenPrice: "ethereum", explorer: "https://etherscan.io/gastracker" },
+  { name: "Base", rpc: "https://mainnet.base.org", tokenPrice: "ethereum", explorer: "https://basescan.org/gastracker" },
+  { name: "Arbitrum", rpc: "https://arb1.arbitrum.io/rpc", tokenPrice: "ethereum", explorer: "https://arbiscan.io/gastracker" },
+  { name: "Optimism", rpc: "https://mainnet.optimism.io", tokenPrice: "ethereum", explorer: "https://optimistic.etherscan.io/gastracker" },
+  { name: "Polygon", rpc: "https://polygon-rpc.com", tokenPrice: "matic-network", explorer: "https://polygonscan.com/gastracker" },
+  { name: "BNB Chain", rpc: "https://bsc-dataseed.binance.org", tokenPrice: "binancecoin", explorer: "https://bscscan.com/gastracker" },
+];
+
+// Typical gas limits for common transactions
+const TX_GAS_LIMITS = {
+  send: 21000,        // Simple ETH transfer
+  erc20: 65000,       // ERC-20 token transfer
+  swap: 150000,       // DEX swap (Uniswap, etc.)
+  stake: 300000,      // LP staking / complex DeFi interaction
+};
+
+async function rpcGasPrice(rpc) {
+  const r = await fetch(rpc, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ jsonrpc: "2.0", method: "eth_gasPrice", params: [], id: 1 }),
+  });
+  const d = await r.json();
+  return parseInt(d.result, 16) / 1e9; // gwei
+}
+
+async function loadEvmTxCosts() {
+  const tbody = document.getElementById("evm-tx-tbody");
+  if (!tbody) return;
+
+  // Get token prices from CoinGecko
+  let prices = {};
+  try {
+    const ids = [...new Set(EVM_CHAINS.map(c => c.tokenPrice))].join(",");
+    const r = await fetchJson(`${CG}/simple/price?ids=${ids}&vs_currencies=usd`);
+    prices = r;
+  } catch (e) { console.error("evm prices", e); }
+
+  const rows = [];
+  for (const chain of EVM_CHAINS) {
+    try {
+      const gasGwei = await rpcGasPrice(chain.rpc);
+      const tokenUsd = prices[chain.tokenPrice]?.usd || 0;
+      // Cost = gasLimit * gasPrice(gwei) * 1e-9 (to ETH) * tokenPrice(USD)
+      const costUsd = (gasGwei, gasLimit) => (gasGwei * gasLimit * 1e-9 * tokenUsd);
+      const fmtCost = (c) => c < 0.01 ? "$" + c.toFixed(4) : "$" + c.toFixed(2);
+
+      rows.push(`<tr>
+        <td style="text-align:left;font-weight:600">${chain.name}</td>
+        <td>${gasGwei.toFixed(4)} gwei</td>
+        <td>${fmtCost(costUsd(gasGwei, TX_GAS_LIMITS.send))}</td>
+        <td>${fmtCost(costUsd(gasGwei, TX_GAS_LIMITS.erc20))}</td>
+        <td>${fmtCost(costUsd(gasGwei, TX_GAS_LIMITS.swap))}</td>
+        <td>${fmtCost(costUsd(gasGwei, TX_GAS_LIMITS.stake))}</td>
+        <td><a href="${chain.explorer}" target="_blank" rel="noopener" style="font-size:11px">Explorer ↗</a></td>
+      </tr>`);
+    } catch (e) {
+      rows.push(`<tr>
+        <td style="text-align:left;font-weight:600">${chain.name}</td>
+        <td colspan="5" class="muted">Unable to fetch gas</td>
+        <td><a href="${chain.explorer}" target="_blank" rel="noopener" style="font-size:11px">Explorer ↗</a></td>
+      </tr>`);
+    }
+  }
+  tbody.innerHTML = rows.join("");
 }
 
 // ─── 3. Trending Coins (CoinGecko) ───
@@ -320,34 +388,35 @@ async function loadBigCoins() {
 }
 
 // ─── Coin → TradingView symbol mapping ───
-// Maps CoinGecko coin IDs to TradingView ticker symbols
-// Most stablecoins chart fine as XXX/USDT on Binance (e.g. BINANCE:USDCUSDT ~$1.00)
-// Tether is the exception — USDT/USDT is meaningless, so chart it against USD on Kraken
+// All pairs use USD (not USDT) via Coinbase exchange
+// Tether uses KRAKEN:USDTUSD since USDT/USD on Coinbase may not exist
 const TV_SYMBOLS = {
-  bitcoin: "BINANCE:BTCUSDT", ethereum: "BINANCE:ETHUSDT", solana: "BINANCE:SOLUSDT",
-  binancecoin: "BINANCE:BNBUSDT", ripple: "BINANCE:XRPUSDT", dogecoin: "BINANCE:DOGEUSDT",
-  cardano: "BINANCE:ADAUSDT", "avalanche-2": "BINANCE:AVAXUSDT", polkadot: "BINANCE:DOTUSDT",
-  chainlink: "BINANCE:LINKUSDT", polygon: "BINANCE:POLUSDT", litecoin: "BINANCE:LTCUSDT",
-  tron: "BINANCE:TRXUSDT", "shiba-inu": "BINANCE:SHIBUSDT", uniswap: "BINANCE:UNIUSDT",
-  "bitcoin-cash": "BINANCE:BCHUSDT", near: "BINANCE:NEARUSDT", aptos: "BINANCE:APTUSDT",
-  arbitrum: "BINANCE:ARBUSDT", optimism: "BINANCE:OPUSDT", filecoin: "BINANCE:FILUSDT",
-  "render-token": "BINANCE:RNDRUSDT", "injective-protocol": "BINANCE:INJUSDT",
-  "the-graph": "BINANCE:GRTUSDT", sui: "BINANCE:SUIUSDT", pepe: "BINANCE:PEPEUSDT",
-  celestia: "BINANCE:TIAUSDT", starknet: "BINANCE:STRKUSDT", wormhole: "BINANCE:WUSDT",
-  "ethereum-classic": "BINANCE:ETCUSDT", stellar: "BINANCE:XLMUSDT", cosmos: "BINANCE:ATOMUSDT",
-  tezos: "BINANCE:XTZUSDT", aave: "BINANCE:AAVEUSDT", maker: "BINANCE:MKRUSDT",
-  "sei-network": "BINANCE:SEIUSDT", dymension: "BINANCE:DYMUSDT",
-  // Tether: USDT/USDT is meaningless — chart against USD on Kraken instead
+  bitcoin: "COINBASE:BTCUSD", ethereum: "COINBASE:ETHUSD", solana: "COINBASE:SOLUSD",
+  binancecoin: "COINBASE:BNBUSD", ripple: "COINBASE:XRPUSD", dogecoin: "COINBASE:DOGEUSD",
+  cardano: "COINBASE:ADAUSD", "avalanche-2": "COINBASE:AVAXUSD", polkadot: "COINBASE:DOTUSD",
+  chainlink: "COINBASE:LINKUSD", polygon: "COINBASE:POLUSD", litecoin: "COINBASE:LTCUSD",
+  tron: "COINBASE:TRXUSD", "shiba-inu": "COINBASE:SHIBUSD", uniswap: "COINBASE:UNIUSD",
+  "bitcoin-cash": "COINBASE:BCHUSD", near: "COINBASE:NEARUSD", aptos: "COINBASE:APTUSD",
+  arbitrum: "COINBASE:ARBUSDT", optimism: "COINBASE:OPUSD", filecoin: "COINBASE:FILUSD",
+  "render-token": "COINBASE:RNDRUSD", "injective-protocol": "COINBASE:INJUSD",
+  "the-graph": "COINBASE:GRTUSD", sui: "COINBASE:SUIUSD", pepe: "COINBASE:PEPEUSD",
+  celestia: "COINBASE:TIAUSD", starknet: "COINBASE:STRKUSD",
+  "ethereum-classic": "COINBASE:ETCUSD", stellar: "COINBASE:XLMUSD", cosmos: "COINBASE:ATOMUSD",
+  tezos: "COINBASE:XTZUSD", aave: "COINBASE:AAVEUSD", maker: "COINBASE:MKRUSD",
+  "sei-network": "COINBASE:SEIUSD", dymension: "COINBASE:DYMUSD",
+  // Tether: can't do USDT/USD on Coinbase, use Kraken
   tether: "KRAKEN:USDTUSD",
 };
 
 function coinToTvSymbol(coin) {
   if (TV_SYMBOLS[coin.id]) return TV_SYMBOLS[coin.id];
-  return "BINANCE:" + coin.symbol.toUpperCase() + "USDT";
+  // Fallback: try Coinbase USD pair, if not found TradingView will show "invalid symbol"
+  // but user can still search for the correct pair in the widget
+  return "COINBASE:" + coin.symbol.toUpperCase() + "USD";
 }
 
 // ─── 10. TradingView Chart Widget ───
-let currentChartSymbol = "BINANCE:BTCUSDT";
+let currentChartSymbol = "COINBASE:BTCUSD";
 let currentChartName = "Bitcoin";
 
 function loadTradingView(symbol, name) {
@@ -399,14 +468,14 @@ function loadTradingView(symbol, name) {
       script.async = true;
       script.innerHTML = JSON.stringify({
         symbols: [
-          { proName: "BINANCE:BTCUSDT", title: "Bitcoin" },
-          { proName: "BINANCE:ETHUSDT", title: "Ethereum" },
-          { proName: "BINANCE:SOLUSDT", title: "Solana" },
-          { proName: "BINANCE:BNBUSDT", title: "BNB" },
-          { proName: "BINANCE:XRPUSDT", title: "XRP" },
-          { proName: "BINANCE:DOGEUSDT", title: "Dogecoin" },
-          { proName: "BINANCE:ADAUSDT", title: "Cardano" },
-          { proName: "BINANCE:AVAXUSDT", title: "Avalanche" },
+          { proName: "COINBASE:BTCUSD", title: "Bitcoin" },
+          { proName: "COINBASE:ETHUSD", title: "Ethereum" },
+          { proName: "COINBASE:SOLUSD", title: "Solana" },
+          { proName: "COINBASE:BNBUSD", title: "BNB" },
+          { proName: "COINBASE:XRPUSD", title: "XRP" },
+          { proName: "COINBASE:DOGEUSD", title: "Dogecoin" },
+          { proName: "COINBASE:ADAUSD", title: "Cardano" },
+          { proName: "COINBASE:AVAXUSD", title: "Avalanche" },
         ],
         showSymbolLogo: true,
         isTransparent: true,
@@ -434,6 +503,7 @@ async function refreshAll() {
     await Promise.allSettled([
       loadGlobal(),
       loadGas(),
+      loadEvmTxCosts(),
       loadTrending(),
       loadCoins(),
       loadTvl(),

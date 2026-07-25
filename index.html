@@ -31,17 +31,17 @@
 
     <!-- SECTION 1: Market Snapshot (clickable cards) -->
     <section class="grid market-grid" id="market-grid">
-      <a class="card stat-card stat-link" href="https://www.coingecko.com/en/global-crypto-market-cap" target="_blank" rel="noopener" title="View on CoinGecko">
+      <a class="card stat-card stat-link" href="https://www.coingecko.com/en/global-crypto-market-cap-2025" target="_blank" rel="noopener" title="Global Crypto Market Cap on CoinGecko">
         <div class="stat-label">Global Market Cap</div>
         <div class="stat-value" id="global-mcap">—</div>
         <div class="stat-change" id="global-mcap-change">—</div>
       </a>
-      <a class="card stat-card stat-link" href="https://www.coingecko.com/en/high-volume" target="_blank" rel="noopener" title="View on CoinGecko">
+      <a class="card stat-card stat-link" href="https://www.coingecko.com/en/exchanges/binance" target="_blank" rel="noopener" title="24h Volume on CoinGecko">
         <div class="stat-label">24h Volume</div>
         <div class="stat-value" id="global-vol">—</div>
         <div class="stat-change muted">across all exchanges</div>
       </a>
-      <a class="card stat-card stat-link" href="https://www.coingecko.com/en/coins/bitcoin" target="_blank" rel="noopener" title="View BTC on CoinGecko">
+      <a class="card stat-card stat-link" href="https://www.tradingview.com/chart/?symbol=CRYPTOCAP:BTC.D" target="_blank" rel="noopener" title="BTC Dominance chart on TradingView">
         <div class="stat-label">BTC Dominance</div>
         <div class="stat-value" id="btc-dom">—</div>
         <div class="stat-change muted">of total market</div>
@@ -53,12 +53,36 @@
       </a>
     </section>
 
-    <!-- SECTION 1.5: TradingView Live Chart -->
+    <!-- SECTION 1.5: EVM Transaction Costs -->
+    <section class="row">
+      <div class="card span-3">
+        <h2>⛽ EVM Transaction Costs</h2>
+        <p class="muted small">Estimated cost of common transactions across EVM chains — <a href="https://etherscan.io/gastracker" target="_blank" rel="noopener" class="muted">data via public RPCs</a></p>
+        <div class="table-wrap" style="margin-top:14px">
+          <table class="coins-table" id="evm-tx-table">
+            <thead>
+              <tr>
+                <th>Chain</th>
+                <th>Gas Price</th>
+                <th>Send ETH</th>
+                <th>ERC-20 Transfer</th>
+                <th>DEX Swap</th>
+                <th>LP Stake</th>
+                <th>Link</th>
+              </tr>
+            </thead>
+            <tbody id="evm-tx-tbody"></tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <!-- SECTION 2: TradingView Live Chart -->
     <section class="row">
       <div class="card span-3">
         <div class="card-header">
           <h2 id="chart-title">📈 Bitcoin — Live Chart</h2>
-          <a id="tv-ext-link" href="https://www.tradingview.com/chart/?symbol=BINANCE:BTCUSDT" target="_blank" rel="noopener" class="btn" style="font-size:12px;text-decoration:none">Open in TradingView ↗</a>
+          <a id="tv-ext-link" href="https://www.tradingview.com/chart/?symbol=COINBASE:BTCUSD" target="_blank" rel="noopener" class="btn" style="font-size:12px;text-decoration:none">Open in TradingView ↗</a>
         </div>
         <div id="tradingview-chart" style="height:400px;width:100%;border-radius:8px;overflow:hidden;"></div>
       </div>
