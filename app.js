@@ -311,11 +311,10 @@ async function loadTvl() {
 // ─── 6. Stablecoin Yields (DeFiLlama yields API — one call) ───
 const YIELD_PLATFORMS = ["morpho-blue", "aave-v3", "moonwell-lending", "jupiter-lend", "kamino-lend"];
 const YIELD_STABLES = ["usdc","usdt","dai","susde","usde","frax","tusd","lusd","pyusd","usdy","usds","alusd","cusdc","cusb","eurc","rlusd"];
-const YIELD_CHAINS = ["base", "solana", "ethereum"];
+// Chain names from API are capitalized: "Base", "Solana", "Ethereum"
+const YIELD_CHAIN_MAP = { "base": "Base", "solana": "Solana", "ethereum": "Ethereum" };
 
 function cleanSymbol(sym) {
-  // Morpho pool symbols can be messy (e.g. "SENPYUSDMAIN", "STEAKUSDC")
-  // Try to extract a recognizable stablecoin
   const s = sym.toUpperCase();
   for (const st of ["SUSDE","USDE","PYUSD","USDC","USDT","DAI","FRAX","TUSD","LUSD","USDY","USDS","RLUSD","EURC","CUSDC","CUSB","ALUSD"]) {
     if (s.includes(st)) return st;
@@ -328,12 +327,41 @@ function yieldProjectLabel(project) {
   return map[project] || project;
 }
 
-function yieldLink(project, chain, symbol) {
-  // Link to DeFiLlama yield page
-  return `https://defillama.com/yields?project=${project}&chain=${chain}`;
+// Build direct link to the actual platform pool
+function yieldDeepLink(project, chain, symbol, underlyingTokens) {
+  const chainLower = chain.toLowerCase();
+  const token = underlyingTokens?.[0] || "";
+
+  if (project === "morpho-blue") {
+    // Morpho: app.morpho.org with network + asset param
+    if (token) return `https://app.morpho.org/?network=${chainLower}&asset=${token}`;
+    return `https://app.morpho.org/?network=${chainLower}`;
+  }
+  if (project === "moonwell-lending") {
+    // Moonwell: moonwell.fi/base?market=USDC
+    const sym = cleanSymbol(symbol);
+    return `https://moonwell.fi/${chainLower}?market=${sym}`;
+  }
+  if (project === "jupiter-lend") {
+    // Jupiter Lend: jup.ag/lend — no per-pool deep link, link to the token page
+    if (token) return `https://jup.ag/tokens/${chainLower}/${token}`;
+    return `https://jup.ag/lend`;
+  }
+  if (project === "kamino-lend") {
+    // Kamino: app.kamino.lend — link to lending dashboard
+    return `https://app.kamino.lend/`;
+  }
+  if (project === "aave-v3") {
+    // Aave: app.aave.com with market + asset
+    if (chainLower === "base" && token) return `https://app.aave.com/?marketName=proto_base_v3&asset=${token}`;
+    if (chainLower === "ethereum" && token) return `https://app.aave.com/?marketName=proto_mainnet_v3&asset=${token}`;
+    return `https://app.aave.com/`;
+  }
+  // Fallback: DeFiLlama yield page
+  return `https://defillama.com/yields?project=${project}&chain=${chainLower}`;
 }
 
-async function loadYields() {
+async function loadYields(filterChain) {
   const listEl = document.getElementById("yield-list");
   const newEl = document.getElementById("new-yield-list");
   if (!listEl) return;
@@ -347,28 +375,31 @@ async function loadYields() {
     const r = await cachedFetch("yields", "https://yields.llama.fi/pools");
     const pools = r.data || [];
 
-    // Filter: target platforms + target chains + stablecoin symbols + min TVL
-    const filtered = pools.filter(p => {
+    // Filter: target platforms + stablecoin symbols + min TVL
+    let filtered = pools.filter(p => {
       const project = (p.project || "").toLowerCase();
-      const chain = (p.chain || "").toLowerCase();
       const sym = (p.symbol || "").toLowerCase();
       const apy = p.apy || 0;
       const tvl = p.tvlUsd || 0;
       return (
         YIELD_PLATFORMS.includes(project) &&
-        YIELD_CHAINS.includes(chain) &&
         apy > 0 &&
         tvl > 50000 &&
         YIELD_STABLES.some(s => sym.includes(s))
       );
     });
 
+    // Apply chain filter if specified
+    if (filterChain && filterChain !== "all") {
+      const targetChainName = YIELD_CHAIN_MAP[filterChain] || filterChain;
+      filtered = filtered.filter(p => (p.chain || "").toLowerCase() === filterChain);
+    }
+
     // Sort by APY descending
     filtered.sort((a, b) => (b.apy || 0) - (a.apy || 0));
 
     // Top 12 for main list
     const top = filtered.slice(0, 12);
-    const newOnes = [];
 
     // Build main list
     listEl.innerHTML = top.map(p => {
@@ -379,13 +410,14 @@ async function loadYields() {
       const tvl = p.tvlUsd || 0;
       const poolKey = `${proj}-${chain}-${sym}`;
       const isNew = !prevYields[poolKey];
-      if (isNew && apy > 4) newOnes.push(p);
-      const link = yieldLink(p.project, chain, sym);
+      const link = yieldDeepLink(p.project, p.chain, p.symbol, p.underlyingTokens);
+      const tvlStr = tvl >= 1e6 ? "$" + (tvl/1e6).toFixed(1) + "M" : "$" + (tvl/1e3).toFixed(0) + "K";
       return `<div class="yield-item ${apy > 6 ? "high" : ""} ${isNew ? "new" : ""}">
         <div><span class="yield-project">${proj}</span> <span class="yield-chain">${chain}</span></div>
         <span class="yield-symbol">${sym}</span>
+        <span class="yield-tvl">${tvlStr}</span>
         <span class="yield-apy">${apy}%</span>
-        <a class="yield-link" href="${link}" target="_blank" rel="noopener" title="View on DeFiLlama">↗</a>
+        <a class="yield-link" href="${link}" target="_blank" rel="noopener" title="Open ${proj} ${sym} on ${chain}">↗</a>
       </div>`;
     }).join("");
 
@@ -406,7 +438,7 @@ async function loadYields() {
           const sym = cleanSymbol(p.symbol);
           const proj = yieldProjectLabel(p.project);
           const apy = (p.apy || 0).toFixed(2);
-          const link = yieldLink(p.project, p.chain, sym);
+          const link = yieldDeepLink(p.project, p.chain, p.symbol, p.underlyingTokens);
           return `<div class="yield-item new">
             <div><span class="yield-project">${proj}</span> <span class="yield-chain">${p.chain}</span></div>
             <span class="yield-symbol">${sym}</span>
@@ -430,6 +462,21 @@ async function loadYields() {
     console.error("yields", e);
     listEl.innerHTML = `<div class="yield-item" style="border-left-color:var(--red)"><div>Unable to load yields</div></div>`;
   }
+}
+
+// Current chain filter for yields
+let yieldChainFilter = "all";
+
+// Chain tab buttons
+function setupYieldTabs() {
+  document.querySelectorAll(".yield-tab").forEach(tab => {
+    tab.addEventListener("click", () => {
+      document.querySelectorAll(".yield-tab").forEach(t => t.classList.remove("active"));
+      tab.classList.add("active");
+      yieldChainFilter = tab.getAttribute("data-chain");
+      loadYields(yieldChainFilter);
+    });
+  });
 }
 
 // ─── 7. Crypto News (CryptoPanic + RSS fallback) ───
@@ -590,7 +637,7 @@ async function refreshAll() {
       loadCoinGeckoData(),  // returns { ethPrice, maticPrice, bnbPrice }
       loadGas(),
       loadTvl(),
-      loadYields(),
+      loadYields(yieldChainFilter),
       loadNews(),
       loadFear(),
     ]);
@@ -613,6 +660,7 @@ async function refreshAll() {
 document.getElementById("chain-select")?.addEventListener("change", (e) => renderCoins(e.target.value));
 document.getElementById("refresh-btn").addEventListener("click", refreshAll);
 setInterval(refreshAll, 5 * 60 * 1000);
+setupYieldTabs();
 
 // ─── Init ───
 refreshAll();

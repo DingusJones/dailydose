@@ -227,6 +227,28 @@ main {
 .tvl-tvl { min-width: 110px; text-align: right; font-weight: 600; }
 
 /* STABLECOIN YIELDS */
+.yield-tabs {
+  display: flex;
+  gap: 4px;
+  margin: 10px 0 0 0;
+}
+.yield-tab {
+  background: var(--bg-3);
+  color: var(--text-muted);
+  border: 1px solid var(--border);
+  padding: 4px 12px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 11px;
+  font-weight: 600;
+  transition: all 0.15s;
+}
+.yield-tab:hover { color: var(--text); border-color: var(--accent); }
+.yield-tab.active {
+  background: var(--accent);
+  color: #fff;
+  border-color: var(--accent);
+}
 .yield-list { display: flex; flex-direction: column; gap: 6px; margin-top: 14px; }
 .yield-item {
   display: flex;

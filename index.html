@@ -119,7 +119,12 @@
     <section class="row">
       <div class="card span-1">
         <h2>💰 Best Stablecoin Yields</h2>
-        <p class="muted small">Base + Solana + Ethereum · sorted by APY</p>
+        <div class="yield-tabs">
+          <button class="yield-tab active" data-chain="all">All</button>
+          <button class="yield-tab" data-chain="base">Base</button>
+          <button class="yield-tab" data-chain="ethereum">ETH</button>
+          <button class="yield-tab" data-chain="solana">SOL</button>
+        </div>
         <div id="yield-list" class="yield-list"></div>
       </div>
 
