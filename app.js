@@ -309,23 +309,26 @@ async function loadTvl() {
 }
 
 // ─── 6. Stablecoin Yields ───
-// Strategy: DeFiLlama is the broadest aggregator; we also enrich Morpho vaults with exact
-// names + direct vault links from Morpho's Blue API when we can match them by symbol.
-const MORPHO_STABLES = ["USDC", "USDT", "DAI", "USDS", "PYUSD", "SUSDE", "USDE"];
-const MORPHO_CHAIN_IDS = { base: 8453, ethereum: 1, arbitrum: 42161, polygon: 137, optimism: 10 };
+// Source strategy:
+//   - Morpho: native Blue GraphQL API (exact vault names, real net APY, exact links)
+//   - Moonwell: native REST API (baseSupplyApy, totalSupplyUsd)
+//   - Aave / Jupiter / Kamino: DeFiLlama fallback (no reliable free native API without auth/RPC limits)
+//   - DeFiLlama is STILL used for Global TVL, chain TVL, and other dashboard calls.
 const YIELD_MIN_TVL = 100000;
 const YIELD_MAX_APY = 50;
+const YIELD_STABLES = ["usdc", "usdt", "dai", "susde", "usde", "pyusd", "usds"];
 
-let morphoVaultLookup = {}; // chain-symbol -> array of vault objects
+// --- Morpho Blue native API ---
+const MORPHO_CHAIN_IDS = { base: 8453, ethereum: 1, arbitrum: 42161, polygon: 137, optimism: 10 };
 
 function morphoVaultUrl(chain, address, name) {
   const slug = name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
   return `https://app.morpho.org/${chain}/vault/${address}/${slug}#overview`;
 }
 
-// Load all Morpho vaults (not filtered by asset) so we can match DeFiLlama pools by symbol
-async function loadMorphoVaults() {
+async function loadMorphoYields() {
   const url = "https://blue-api.morpho.org/graphql";
+  const results = [];
   try {
     for (const [chain, chainId] of Object.entries(MORPHO_CHAIN_IDS)) {
       const query = JSON.stringify({
@@ -334,25 +337,64 @@ async function loadMorphoVaults() {
       const r = await fetch(url, { method: "POST", headers: { "Content-Type": "application/json" }, body: query });
       const d = await r.json();
       const vaults = d?.data?.vaults?.items || [];
-      vaults.forEach(v => {
-        const key = `${chain}-${v.symbol.toUpperCase()}`;
-        if (!morphoVaultLookup[key]) morphoVaultLookup[key] = [];
-        morphoVaultLookup[key].push(v);
+      for (const v of vaults) {
+        const assetSym = (v.asset?.symbol || "").toLowerCase();
+        if (!YIELD_STABLES.some(s => assetSym.includes(s))) continue;
+        const tvl = v.state?.totalAssetsUsd || 0;
+        const apy = (v.state?.netApy || 0) * 100;
+        if (tvl < YIELD_MIN_TVL || apy <= 0 || apy > YIELD_MAX_APY) continue;
+        results.push({
+          project: "morpho-blue",
+          chain,
+          chainDisplay: chain.charAt(0).toUpperCase() + chain.slice(1),
+          name: v.name,
+          symbol: v.symbol,
+          asset: v.asset?.symbol || v.symbol,
+          apy,
+          tvlUsd: tvl,
+          link: morphoVaultUrl(chain, v.address, v.name),
+          source: "Morpho API"
+        });
+      }
+    }
+  } catch (e) { console.error("morpho yields", e); }
+  return results;
+}
+
+// --- Moonwell native API ---
+async function loadMoonwellYields() {
+  const results = [];
+  const stables = ["USDC", "USDT", "DAI", "USDS", "PYUSD", "EURC"];
+  try {
+    const r = await fetch("https://api.moonwell.fi/v1/markets", { headers: { "Accept": "application/json" } });
+    const d = await r.json();
+    // Current endpoint returns Base markets by default (meta.chain eip155:8453)
+    const chain = "base";
+    for (const m of d?.data || []) {
+      const sym = (m.asset || "").toUpperCase();
+      if (!stables.includes(sym)) continue;
+      const apy = (m.totalSupplyApr || m.baseSupplyApy || 0) * 100;
+      const tvl = m.totalSupplyUsd || 0;
+      if (tvl < YIELD_MIN_TVL || apy <= 0 || apy > YIELD_MAX_APY) continue;
+      results.push({
+        project: "moonwell-lending",
+        chain,
+        chainDisplay: "Base",
+        name: `Moonwell ${sym}`,
+        symbol: `m${sym}`,
+        asset: sym,
+        apy,
+        tvlUsd: tvl,
+        link: `https://moonwell.fi/${chain}?market=${sym}`,
+        source: "Moonwell API"
       });
     }
-  } catch (e) { console.error("morpho vaults", e); }
+  } catch (e) { console.error("moonwell yields", e); }
+  return results;
 }
 
-function getMorphoVault(chain, symbol) {
-  const chainLower = chain.toLowerCase();
-  const key = `${chainLower}-${symbol.toUpperCase()}`;
-  const vaults = morphoVaultLookup[key];
-  if (!vaults || vaults.length === 0) return null;
-  const stables = ["USDC", "USDT", "DAI", "SUSDE", "USDE", "PYUSD", "USDS"];
-  return vaults.find(v => stables.includes(v.asset?.symbol?.toUpperCase())) || vaults[0];
-}
-
-async function loadYieldsFromDeFiLlama() {
+// --- Fallback: DeFiLlama for platforms without a reliable free native API ---
+async function loadFallbackYields() {
   try {
     const r = await cachedFetch("yields", "https://yields.llama.fi/pools");
     const pools = r.data || [];
@@ -362,55 +404,30 @@ async function loadYieldsFromDeFiLlama() {
       const sym = (p.symbol || "").toLowerCase();
       const apy = p.apy || 0;
       const tvl = p.tvlUsd || 0;
-      const platforms = ["morpho-blue", "aave-v3", "moonwell-lending", "jupiter-lend", "kamino-lend"];
+      const platforms = ["aave-v3", "jupiter-lend", "kamino-lend"];
       const chains = ["base", "solana", "ethereum", "arbitrum", "polygon", "optimism"];
-      const stables = ["usdc","usdt","dai","susde","usde","pyusd","usds"];
       return (
         platforms.includes(project) &&
         chains.includes(chain) &&
         apy > 0 && apy <= YIELD_MAX_APY &&
         tvl >= YIELD_MIN_TVL &&
-        stables.some(s => sym.includes(s))
+        YIELD_STABLES.some(s => sym.includes(s))
       );
-    }).map(p => {
-      const chainLower = p.chain.toLowerCase();
-      const project = p.project;
-      let name = cleanSymbol(p.symbol);
-      let link = yieldDeepLink(project, p.chain, p.symbol, p.underlyingTokens);
-      let apy = p.apy;
-      let tvlUsd = p.tvlUsd;
-
-      // For Morpho, trust Morpho Blue API APY/TVL when we can match the vault;
-      // DeFiLlama's symbol-level APY often diverges (e.g. includes reward points / stale rates).
-      if (project === "morpho-blue") {
-        const vault = getMorphoVault(p.chain, p.symbol);
-        if (vault) {
-          name = vault.name;
-          link = morphoVaultUrl(chainLower, vault.address, vault.name);
-          const netApy = vault.state?.netApy;
-          if (typeof netApy === "number" && netApy >= 0) apy = netApy * 100;
-          const morphoTvl = vault.state?.totalAssetsUsd;
-          if (typeof morphoTvl === "number" && morphoTvl >= 0) tvlUsd = morphoTvl;
-        }
-      }
-
-      return {
-        project,
-        chain: chainLower,
-        chainDisplay: p.chain,
-        name,
-        symbol: p.symbol,
-        address: null,
-        asset: cleanSymbol(p.symbol),
-        apy: p.apy,
-        tvlUsd: p.tvlUsd,
-        link,
-      };
-    });
-  } catch (e) { console.error("defillama yields", e); return []; }
+    }).map(p => ({
+      project: p.project,
+      chain: p.chain.toLowerCase(),
+      chainDisplay: p.chain,
+      name: cleanSymbol(p.symbol),
+      symbol: p.symbol,
+      asset: cleanSymbol(p.symbol),
+      apy: p.apy,
+      tvlUsd: p.tvlUsd,
+      link: yieldDeepLink(p.project, p.chain, p.symbol, p.underlyingTokens),
+      source: "DeFiLlama"
+    }));
+  } catch (e) { console.error("fallback yields", e); return []; }
 }
 
-// Original deep-link helper for non-Morpho platforms (kept)
 function yieldDeepLink(project, chain, symbol, underlyingTokens) {
   const chainLower = chain.toLowerCase();
   const token = underlyingTokens?.[0] || "";
@@ -431,7 +448,7 @@ function yieldDeepLink(project, chain, symbol, underlyingTokens) {
 
 function cleanSymbol(sym) {
   const s = sym.toUpperCase();
-  for (const st of ["SUSDE","USDE","PYUSD","USDC","USDT","DAI","FRAX","TUSD","LUSD","USDY","USDS","RLUSD","EURC","CUSDC","CUSB","ALUSD"]) {
+  for (const st of ["SUSDE", "USDE", "PYUSD", "USDC", "USDT", "DAI", "FRAX", "TUSD", "LUSD", "USDY", "USDS", "RLUSD", "EURC", "CUSDC", "CUSB", "ALUSD"]) {
     if (s.includes(st)) return st;
   }
   return sym;
@@ -442,24 +459,8 @@ function yieldProjectLabel(project) {
   return map[project] || project;
 }
 
-// Build direct link to the actual platform pool / market / vault
-function yieldDeepLink(project, chain, symbol, underlyingTokens) {
-  const chainLower = chain.toLowerCase();
-  const token = underlyingTokens?.[0] || "";
-  const sym = cleanSymbol(symbol);
-  if (project === "aave-v3") {
-    if (chainLower === "base" && token) return `https://app.aave.com/?marketName=proto_base_v3&asset=${token}`;
-    if (chainLower === "ethereum" && token) return `https://app.aave.com/?marketName=proto_mainnet_v3&asset=${token}`;
-    if (chainLower === "arbitrum" && token) return `https://app.aave.com/?marketName=proto_arbitrum_v3&asset=${token}`;
-    if (chainLower === "optimism" && token) return `https://app.aave.com/?marketName=proto_optimism_v3&asset=${token}`;
-    if (chainLower === "polygon" && token) return `https://app.aave.com/?marketName=proto_polygon_v3&asset=${token}`;
-    return `https://app.aave.com/?asset=${token}`;
-  }
-  if (project === "moonwell-lending") return `https://moonwell.fi/${chainLower}?market=${sym}`;
-  if (project === "jupiter-lend") return token ? `https://jup.ag/lend?token=${token}` : "https://jup.ag/lend";
-  if (project === "kamino-lend") return "https://app.kamino.finance/lend";
-  return `https://defillama.com/yields?project=${project}&chain=${chainLower}`;
-}
+let yieldPlatformFilter = "all";
+let yieldChainFilter = "all";
 
 async function loadYields(filterPlatform, filterChain) {
   const listEl = document.getElementById("yield-list");
@@ -471,22 +472,23 @@ async function loadYields(filterPlatform, filterChain) {
   try { prevYields = JSON.parse(localStorage.getItem(prevKey) || "{}"); } catch {}
 
   try {
-    // Always load Morpho vault metadata first (used to enrich DeFiLlama pools)
-    await loadMorphoVaults();
-    let all = await loadYieldsFromDeFiLlama();
+    const [morpho, moonwell, fallback] = await Promise.all([
+      loadMorphoYields(),
+      loadMoonwellYields(),
+      loadFallbackYields()
+    ]);
 
-    // Apply platform filter
+    let all = [...morpho, ...moonwell, ...fallback];
+
     if (filterPlatform && filterPlatform !== "all") {
       all = all.filter(p => p.project === filterPlatform);
     }
-
     if (filterChain && filterChain !== "all") {
       all = all.filter(p => p.chain === filterChain);
     }
 
     // Sort by APY descending
     all.sort((a, b) => b.apy - a.apy);
-
     const top = all.slice(0, 12);
 
     // Build main list
@@ -500,7 +502,7 @@ async function loadYields(filterPlatform, filterChain) {
         <div class="yield-item ${p.apy > 6 ? "high" : ""} ${isNew ? "new" : ""}">
           <div class="yield-main">
             <span class="yield-name">${p.name} <span class="yield-chain-badge">${p.chainDisplay}</span></span>
-            <span class="yield-project">${proj}</span>
+            <span class="yield-project">${proj} · <span class="yield-source">${p.source}</span></span>
           </div>
           <span class="yield-tvl">${tvlStr}</span>
           <span class="yield-apy">${apyStr}%</span>
@@ -527,7 +529,7 @@ async function loadYields(filterPlatform, filterChain) {
             <div class="yield-item new">
               <div class="yield-main">
                 <span class="yield-name">${p.name} <span class="yield-chain-badge">${p.chainDisplay}</span></span>
-                <span class="yield-project">${proj}</span>
+                <span class="yield-project">${proj} · <span class="yield-source">${p.source}</span></span>
               </div>
               <span class="yield-apy">${apyStr}%</span>
               <span class="yield-link-icon">↗</span>
@@ -550,11 +552,6 @@ async function loadYields(filterPlatform, filterChain) {
   }
 }
 
-// Current chain filter for yields
-let yieldPlatformFilter = "all";
-let yieldChainFilter = "all";
-
-// Chain tab buttons
 function setupYieldTabs() {
   document.querySelectorAll(".yield-platform-tab").forEach(tab => {
     tab.addEventListener("click", () => {

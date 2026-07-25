@@ -78,14 +78,18 @@ a:hover { text-decoration: underline; }
 }
 
 .pepe {
-  font-size: 22px;
-  line-height: 1;
-  margin-right: -2px;
-  filter: drop-shadow(0 0 5px rgba(76, 175, 80, 0.4));
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  margin-right: 2px;
+  filter: drop-shadow(0 0 5px rgba(76, 175, 80, 0.45));
   transition: transform 0.2s;
 }
+.pepe svg { display: block; }
 .brand:hover .pepe {
-  transform: scale(1.15) rotate(-6deg);
+  transform: scale(1.12) rotate(-6deg);
 }
 
 /* BUTTON */
