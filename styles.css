@@ -61,7 +61,20 @@ a:hover { text-decoration: underline; }
   background-clip: text;
   -webkit-text-fill-color: transparent;
 }
-.logo { font-size: 26px; }
+.pepe-img {
+  width: 40px;
+  height: 44px;
+  object-fit: contain;
+  margin-left: -28px;
+  margin-right: 10px;
+  border-radius: 0 12px 12px 0;
+  filter: drop-shadow(0 0 5px rgba(76, 175, 80, 0.45));
+  transition: transform 0.2s;
+  flex-shrink: 0;
+}
+.brand:hover .pepe-img {
+  transform: scale(1.08) rotate(-3deg);
+}
 .meta { display: flex; align-items: center; gap: 14px; }
 
 /* DISCLAIMER BADGE */
@@ -77,20 +90,6 @@ a:hover { text-decoration: underline; }
   letter-spacing: 0.3px;
 }
 
-.pepe-img {
-  width: 40px;
-  height: 44px;
-  object-fit: contain;
-  margin-left: -28px;
-  margin-right: 6px;
-  border-radius: 0 12px 12px 0;
-  filter: drop-shadow(0 0 5px rgba(76, 175, 80, 0.45));
-  transition: transform 0.2s;
-  flex-shrink: 0;
-}
-.brand:hover .pepe-img {
-  transform: scale(1.08) rotate(-3deg);
-}
 
 /* BUTTON */
 .btn {
@@ -242,7 +241,7 @@ main {
   .gauge-value { font-size: 44px; }
   .brand h1 { font-size: 15px; }
   .disclaimer-badge { display: none; }
-  .pepe-img { margin-left: -16px; width: 34px; height: 38px; }
+  .pepe-img { margin-left: -16px; width: 34px; height: 38px; margin-right: 8px; }
 }
 
 /* CARDS */
