@@ -143,11 +143,8 @@ function renderCoins(chain) {
     const pct24 = c.price_change_percentage_24h;
     const pct7d = c.price_change_percentage_7d_in_currency;
     const color = pct24 >= 0 ? "#16c784" : "#ea3943";
-    const chartable = isChartable(c);
-    const tvSym = chartable ? coinToTvSymbol(c) : "";
-    const rowClass = chartable ? "coin-row" : "coin-row no-chart";
-    const titleAttr = chartable ? `title="Click to chart ${c.name} on TradingView"` : 'title="Stablecoin — no chart available"';
-    return `<tr class="${rowClass}" data-tv="${tvSym}" data-name="${c.name}" data-chartable="${chartable}" ${titleAttr}>
+    const tvSym = coinToTvSymbol(c);
+    return `<tr class="coin-row" data-tv="${tvSym}" data-name="${c.name}" style="cursor:pointer" title="Click to chart ${c.name} on TradingView">
       <td>${i + 1}</td>
       <td><div class="coin-cell">
         <img src="${c.image}" alt="" loading="lazy" onerror="this.style.display='none'">
@@ -162,8 +159,8 @@ function renderCoins(chain) {
     </tr>`;
   }).join("");
 
-  // Add click handlers — only for chartable coins
-  tbody.querySelectorAll(".coin-row[data-chartable='true']").forEach(row => {
+  // Click handler — swap TradingView chart to clicked coin
+  tbody.querySelectorAll(".coin-row").forEach(row => {
     row.addEventListener("click", () => {
       const tv = row.getAttribute("data-tv");
       const name = row.getAttribute("data-name");
@@ -323,7 +320,9 @@ async function loadBigCoins() {
 }
 
 // ─── Coin → TradingView symbol mapping ───
-// Maps CoinGecko coin IDs to TradingView ticker symbols (BINANCE exchange)
+// Maps CoinGecko coin IDs to TradingView ticker symbols
+// Most stablecoins chart fine as XXX/USDT on Binance (e.g. BINANCE:USDCUSDT ~$1.00)
+// Tether is the exception — USDT/USDT is meaningless, so chart it against USD on Kraken
 const TV_SYMBOLS = {
   bitcoin: "BINANCE:BTCUSDT", ethereum: "BINANCE:ETHUSDT", solana: "BINANCE:SOLUSDT",
   binancecoin: "BINANCE:BNBUSDT", ripple: "BINANCE:XRPUSDT", dogecoin: "BINANCE:DOGEUSDT",
@@ -338,30 +337,13 @@ const TV_SYMBOLS = {
   "ethereum-classic": "BINANCE:ETCUSDT", stellar: "BINANCE:XLMUSDT", cosmos: "BINANCE:ATOMUSDT",
   tezos: "BINANCE:XTZUSDT", aave: "BINANCE:AAVEUSDT", maker: "BINANCE:MKRUSDT",
   "sei-network": "BINANCE:SEIUSDT", dymension: "BINANCE:DYMUSDT",
+  // Tether: USDT/USDT is meaningless — chart against USD on Kraken instead
+  tether: "KRAKEN:USDTUSD",
 };
-
-// ─── Coin → TradingView symbol mapping ───
-// Stablecoins that can't be charted against USDT (would be XXX/USDT == same asset)
-const STABLECOINS = new Set([
-  "tether", "usd-coin", "dai", "true-usd", "frax", "first-digital-usd",
-  "paxos-standard", "gemini-dollar", "ankr-stakebond", "staked-frax",
-  "sablier", "usdp", "husd", "usdx", "terrausd", "neutrino", "alchemix-usd",
-  "liquity-usd", "fei-usd", "mimo-governance-token", "usdd", "stasis-eurs",
-]);
 
 function coinToTvSymbol(coin) {
   if (TV_SYMBOLS[coin.id]) return TV_SYMBOLS[coin.id];
   return "BINANCE:" + coin.symbol.toUpperCase() + "USDT";
-}
-
-function isChartable(coin) {
-  // Skip stablecoins (USDTUSDT makes no sense) and coins with no symbol
-  if (STABLECOINS.has(coin.id)) return false;
-  if (!coin.symbol) return false;
-  const sym = coin.symbol.toUpperCase();
-  // Skip if the symbol IS a stablecoin ticker
-  if (["USDT", "USDC", "DAI", "TUSD", "FRAX", "FDUSD", "USDP", "USDD", "EURS", "USTC"].includes(sym)) return false;
-  return true;
 }
 
 // ─── 10. TradingView Chart Widget ───

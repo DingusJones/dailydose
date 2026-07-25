@@ -199,8 +199,6 @@ main {
   border-left: 3px solid var(--accent);
 }
 .coin-row.selected-coin td:first-child { padding-left: 7px; }
-.coin-row.no-chart { opacity: 0.5; cursor: not-allowed; }
-.coin-row.no-chart:hover { background: var(--bg-3) !important; }
 
 /* SELECT */
 .select {
