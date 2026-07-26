@@ -6,7 +6,7 @@
   <title>DailyDose — Crypto Dashboard</title>
   <meta name="description" content="Your daily dose of crypto: trending news, whale alerts, and top coins by chain." />
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E%F0%9F%92%AC%3C/text%3E%3C/svg%3E" />
-  <link rel="stylesheet" href="styles.css?v=28" />
+  <link rel="stylesheet" href="styles.css?v=29" />
 </head>
 <body>
   <header class="topbar">
@@ -187,7 +187,10 @@
       <div class="card span-3">
         <div class="card-header">
           <h2>⛽ EVM Transaction Costs</h2>
-          <button class="section-refresh" data-refresh="evm" title="Refresh EVM costs">↻</button>
+          <div class="section-actions">
+            <button class="section-refresh" data-refresh="evm" title="Refresh EVM costs">↻</button>
+            <button class="evm-toggle" id="evm-toggle" title="Toggle full table">▼</button>
+          </div>
         </div>
         <p class="muted small">Estimated cost of common transactions across EVM chains — <a href="https://etherscan.io/gastracker" target="_blank" rel="noopener" class="muted">data via public RPCs</a></p>
         <div class="table-wrap" style="margin-top:14px">
@@ -196,8 +199,8 @@
               <tr>
                 <th>Chain</th>
                 <th>Gas Price</th>
-                <th>Send ETH</th>
-                <th>ERC-20 Transfer</th>
+                <th class="evm-col-extra">Send ETH</th>
+                <th class="evm-col-extra">ERC-20 Transfer</th>
                 <th>DEX Swap</th>
                 <th>LP Stake</th>
                 <th>Link</th>
@@ -253,6 +256,6 @@
     </footer>
   </main>
 
-  <script src="app.js?v=28"></script>
+  <script src="app.js?v=29"></script>
 </body>
 </html>

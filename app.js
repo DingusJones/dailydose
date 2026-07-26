@@ -82,6 +82,16 @@ function timeAgo(ts) {
   if (d < 86400) return Math.floor(d / 3600) + "h ago";
   return Math.floor(d / 86400) + "d ago";
 }
+
+function fmtDate(ts) {
+  const d = new Date(ts * 1000);
+  const now = new Date();
+  const isToday = d.toDateString() === now.toDateString();
+  const opts = isToday
+    ? { hour: "2-digit", minute: "2-digit" }
+    : { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" };
+  return d.toLocaleDateString("en-US", opts);
+}
 function changeClass(n) {
   if (n == null || isNaN(n)) return "";
   return n >= 0 ? "up" : "down";
@@ -247,8 +257,8 @@ async function loadEvmTxCosts(prices) {
     return `<tr>
       <td data-label="Chain">${chain.name}</td>
       <td data-label="Gas Price">${gasGwei.toFixed(4)} gwei</td>
-      <td data-label="Send ETH">${fmtCost(cost(TX_GAS.send))}</td>
-      <td data-label="ERC-20 Transfer">${fmtCost(cost(TX_GAS.erc20))}</td>
+      <td data-label="Send ETH" class="evm-col-extra evm-row-extra">${fmtCost(cost(TX_GAS.send))}</td>
+      <td data-label="ERC-20 Transfer" class="evm-col-extra evm-row-extra">${fmtCost(cost(TX_GAS.erc20))}</td>
       <td data-label="DEX Swap">${fmtCost(cost(TX_GAS.swap))}</td>
       <td data-label="LP Stake">${fmtCost(cost(TX_GAS.stake))}</td>
       <td data-label="Link"><a href="${chain.explorer}" target="_blank" rel="noopener" style="font-size:11px">Explorer ↗</a></td>
@@ -755,7 +765,7 @@ function renderNews() {
         <div class="news-meta">
           <span class="news-source">${item.source}</span>
           ${item.author ? `<span>· ${item.author}</span>` : ""}
-          <span>· ${timeAgo(ts)}</span>
+          <span>· ${fmtDate(ts)}</span>
           ${catBadges}
         </div>
       </div>
@@ -1127,6 +1137,18 @@ const refreshHandlers = {
     btn.classList.remove("spinning");
   },
 };
+
+// ─── EVM toggle (collapsed by default) ───
+const evmWrap = document.querySelector("#evm-tx-table")?.closest(".table-wrap");
+if (evmWrap) evmWrap.classList.add("evm-collapsed");
+document.getElementById("evm-toggle")?.addEventListener("click", () => {
+  const wrap = document.querySelector("#evm-tx-table")?.closest(".table-wrap");
+  const btn = document.getElementById("evm-toggle");
+  if (!wrap || !btn) return;
+  wrap.classList.toggle("evm-collapsed");
+  btn.classList.toggle("expanded");
+  btn.textContent = wrap.classList.contains("evm-collapsed") ? "▼" : "▲";
+});
 
 document.querySelectorAll(".section-refresh").forEach(btn => {
   btn.addEventListener("click", () => {

@@ -135,6 +135,35 @@ a:hover { text-decoration: underline; }
 .section-actions { display: flex; align-items: center; gap: 8px; }
 .market-refresh-bar { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
 
+/* EVM toggle button */
+.evm-toggle {
+  background: transparent;
+  border: none;
+  color: var(--text-muted);
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  cursor: pointer;
+  font-size: 12px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.15s;
+  flex-shrink: 0;
+}
+.evm-toggle:hover { background: var(--bg-3); color: var(--accent); }
+.evm-toggle.expanded { transform: rotate(180deg); }
+
+/* EVM collapsed state — hide extra columns */
+.evm-collapsed .evm-col-extra { display: none; }
+.evm-collapsed .evm-row-extra { display: none; }
+
+/* EVM collapsed on mobile — hide extra rows in stacked card layout */
+@media (max-width: 600px) {
+  .evm-collapsed #evm-tx-table tr .evm-row-extra { display: none; }
+  .evm-collapsed #evm-tx-table td.evm-row-extra { display: none; }
+}
+
 /* MAIN LAYOUT */
 main {
   max-width: 1400px;
@@ -316,7 +345,7 @@ main {
   .news-meta { font-size: 10px; gap: 4px 6px; flex-wrap: wrap; margin-top: 8px; }
   .news-cat-badge { font-size: 8px; padding: 1px 5px; }
   .news-filter-tab { padding: 5px 10px; font-size: 11px; }
-  .news-scroll { max-height: 600px; }
+  .news-scroll { max-height: 400px; }
 
   /* EVM tx table — stacked card layout on mobile, no horizontal scroll */
   #evm-tx-table { min-width: 0; font-size: 11px; table-layout: fixed; width: 100%; }
