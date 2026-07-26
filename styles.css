@@ -135,8 +135,9 @@ a:hover { text-decoration: underline; }
 .section-actions { display: flex; align-items: center; gap: 8px; }
 .market-refresh-bar { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
 
-/* EVM toggle button */
-.evm-toggle {
+/* EVM toggle button — removed, now per-chain */
+/* TVL toggle button — same style as refresh */
+.tvl-toggle {
   background: transparent;
   border: none;
   color: var(--text-muted);
@@ -151,18 +152,8 @@ a:hover { text-decoration: underline; }
   transition: all 0.15s;
   flex-shrink: 0;
 }
-.evm-toggle:hover { background: var(--bg-3); color: var(--accent); }
-.evm-toggle.expanded { transform: rotate(180deg); }
-
-/* EVM collapsed state — hide extra columns */
-.evm-collapsed .evm-col-extra { display: none; }
-.evm-collapsed .evm-row-extra { display: none; }
-
-/* EVM collapsed on mobile — hide extra rows in stacked card layout */
-@media (max-width: 600px) {
-  .evm-collapsed #evm-tx-table tr .evm-row-extra { display: none; }
-  .evm-collapsed #evm-tx-table td.evm-row-extra { display: none; }
-}
+.tvl-toggle:hover { background: var(--bg-3); color: var(--accent); }
+.tvl-toggle.expanded { transform: rotate(180deg); }
 
 /* MAIN LAYOUT */
 main {
@@ -345,45 +336,15 @@ main {
   .news-meta { font-size: 10px; gap: 4px 6px; flex-wrap: wrap; margin-top: 8px; }
   .news-cat-badge { font-size: 8px; padding: 1px 5px; }
   .news-filter-tab { padding: 5px 10px; font-size: 11px; }
-  .news-scroll { max-height: 400px; }
+  .news-scroll { max-height: 320px; }
 
-  /* EVM tx table — stacked card layout on mobile, no horizontal scroll */
-  #evm-tx-table { min-width: 0; font-size: 11px; table-layout: fixed; width: 100%; }
-  #evm-tx-table thead { display: none; }
-  #evm-tx-table, #evm-tx-table tbody, #evm-tx-table tr, #evm-tx-table td { display: block; width: 100%; }
-  #evm-tx-table tr {
-    border: 1px solid var(--border);
-    border-radius: 8px;
-    margin-bottom: 8px;
-    padding: 10px;
-    background: var(--bg-3);
-  }
-  #evm-tx-table td {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding: 4px 0;
-    border-bottom: 1px solid rgba(255,255,255,0.04);
-    text-align: left;
-  }
-  #evm-tx-table td:last-child { border-bottom: none; }
-  #evm-tx-table td::before {
-    content: attr(data-label);
-    color: var(--text-muted);
-    font-size: 10px;
-    text-transform: uppercase;
-    letter-spacing: 0.3px;
-    font-weight: 600;
-  }
-  #evm-tx-table td:first-child {
-    font-size: 13px;
-    font-weight: 700;
-    color: var(--text);
-    border-bottom: 1px solid var(--border);
-    padding-bottom: 6px;
-    margin-bottom: 2px;
-  }
-  #evm-tx-table td:first-child::before { display: none; }
+  /* EVM chain cards — stacked on mobile */
+  .evm-chain-card { margin-bottom: 8px; }
+  .evm-chain-header { flex-wrap: wrap; }
+  .evm-chain-name { font-size: 13px; }
+  .evm-gas-price { font-size: 11px; }
+  .evm-chain-summary { font-size: 11px; gap: 12px; }
+  .evm-detail-row { font-size: 11px; }
 
   /* Footer */
   .footer { padding: 16px 0; }
@@ -533,6 +494,80 @@ main {
 .tvl-bar-wrap { flex: 1; height: 18px; background: var(--bg-3); border-radius: 4px; overflow: hidden; position: relative; }
 .tvl-bar { height: 100%; background: linear-gradient(90deg, var(--accent), var(--accent-2)); border-radius: 4px; }
 .tvl-tvl { min-width: 110px; text-align: right; font-weight: 600; }
+
+/* EVM CHAIN CARDS — per-chain collapsible cards */
+.evm-chain-cards { display: flex; flex-direction: column; gap: 8px; }
+.evm-chain-card {
+  background: var(--bg-3);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  overflow: hidden;
+  transition: border-color 0.15s;
+}
+.evm-chain-card:hover { border-color: var(--accent); }
+.evm-chain-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 14px;
+}
+.evm-chain-name {
+  font-weight: 700;
+  font-size: 14px;
+  color: var(--text);
+  text-decoration: none;
+  flex: 1;
+}
+.evm-chain-name:hover { color: var(--accent); text-decoration: underline; }
+.evm-gas-price {
+  font-weight: 600;
+  font-size: 13px;
+  color: var(--text);
+  white-space: nowrap;
+}
+.evm-chain-arrow {
+  background: transparent;
+  border: none;
+  color: var(--text-muted);
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  cursor: pointer;
+  font-size: 11px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.15s;
+  flex-shrink: 0;
+}
+.evm-chain-arrow:hover { background: rgba(255,255,255,0.05); color: var(--accent); }
+.evm-chain-details {
+  display: none;
+  padding: 0 14px 10px;
+  border-top: 1px solid var(--border);
+}
+.evm-chain-card:not(.evm-collapsed) .evm-chain-details { display: block; }
+.evm-chain-card:not(.evm-collapsed) .evm-chain-summary { display: none; }
+.evm-detail-row {
+  display: flex;
+  justify-content: space-between;
+  padding: 5px 0;
+  font-size: 12px;
+  border-bottom: 1px solid rgba(255,255,255,0.04);
+}
+.evm-detail-row:last-child { border-bottom: none; }
+.evm-detail-label { color: var(--text-muted); }
+.evm-detail-value { font-weight: 600; }
+.evm-chain-summary {
+  display: flex;
+  gap: 16px;
+  padding: 0 14px 10px;
+  font-size: 12px;
+}
+.evm-collapsed .evm-chain-summary { display: flex; }
+.evm-collapsed .evm-chain-details { display: none; }
+.evm-summary-item { color: var(--text-muted); }
+.evm-summary-item strong { color: var(--text); font-weight: 600; }
 
 /* STABLECOIN YIELDS */
 .yield-tabs {

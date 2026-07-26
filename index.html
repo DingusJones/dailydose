@@ -6,7 +6,7 @@
   <title>DailyDose — Crypto Dashboard</title>
   <meta name="description" content="Your daily dose of crypto: trending news, whale alerts, and top coins by chain." />
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E%F0%9F%92%AC%3C/text%3E%3C/svg%3E" />
-  <link rel="stylesheet" href="styles.css?v=29" />
+  <link rel="stylesheet" href="styles.css?v=30" />
 </head>
 <body>
   <header class="topbar">
@@ -123,7 +123,10 @@
       <div class="card span-3">
         <div class="card-header">
           <h2>🏦 DeFi TVL by Chain</h2>
-          <button class="section-refresh" data-refresh="tvl" title="Refresh TVL">↻</button>
+          <div class="section-actions">
+            <button class="section-refresh" data-refresh="tvl" title="Refresh TVL">↻</button>
+            <button class="tvl-toggle" id="tvl-toggle" title="Toggle full list">▼</button>
+          </div>
         </div>
         <p class="muted small">Click any chain to view on DeFiLlama — <a href="https://defillama.com/chains" target="_blank" rel="noopener" class="muted">defillama.com/chains</a></p>
         <div class="tvl-list" id="tvl-list"></div>
@@ -187,28 +190,10 @@
       <div class="card span-3">
         <div class="card-header">
           <h2>⛽ EVM Transaction Costs</h2>
-          <div class="section-actions">
-            <button class="section-refresh" data-refresh="evm" title="Refresh EVM costs">↻</button>
-            <button class="evm-toggle" id="evm-toggle" title="Toggle full table">▼</button>
-          </div>
+          <button class="section-refresh" data-refresh="evm" title="Refresh EVM costs">↻</button>
         </div>
         <p class="muted small">Estimated cost of common transactions across EVM chains — <a href="https://etherscan.io/gastracker" target="_blank" rel="noopener" class="muted">data via public RPCs</a></p>
-        <div class="table-wrap" style="margin-top:14px">
-          <table class="coins-table" id="evm-tx-table">
-            <thead>
-              <tr>
-                <th>Chain</th>
-                <th>Gas Price</th>
-                <th class="evm-col-extra">Send ETH</th>
-                <th class="evm-col-extra">ERC-20 Transfer</th>
-                <th>DEX Swap</th>
-                <th>LP Stake</th>
-                <th>Link</th>
-              </tr>
-            </thead>
-            <tbody id="evm-tx-tbody"></tbody>
-          </table>
-        </div>
+        <div id="evm-chain-cards" class="evm-chain-cards" style="margin-top:14px"></div>
       </div>
     </section>
 
@@ -256,6 +241,6 @@
     </footer>
   </main>
 
-  <script src="app.js?v=29"></script>
+  <script src="app.js?v=30"></script>
 </body>
 </html>

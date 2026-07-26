@@ -4,7 +4,6 @@
 // Optimized: consolidated CoinGecko calls, localStorage caching, CORS proxy for RPCs
 
 const CG = "https://api.coingecko.com/api/v3";
-const LLAMA_PROTOCOLS = "https://api.llama.fi/protocols";
 const FEAR = "https://api.alternative.me/fng/";
 
 // ─── Cache: localStorage with TTL ───
@@ -225,17 +224,17 @@ async function rpcGasPriceProxied(rpc) {
 }
 
 async function loadEvmTxCosts(prices) {
-  const tbody = document.getElementById("evm-tx-tbody");
-  if (!tbody) return;
+  const container = document.getElementById("evm-chain-cards");
+  if (!container) return;
 
-  // Fetch all 6 chain gas prices in PARALLEL (was sequential)
+  // Fetch all chain gas prices in PARALLEL
   const results = await Promise.allSettled(
     EVM_CHAINS.map(async (chain) => {
       let gasGwei;
       try {
         gasGwei = await rpcGasPrice(chain.rpc);
       } catch {
-        gasGwei = await rpcGasPriceProxied(chain.rpc); // CORS fallback
+        gasGwei = await rpcGasPriceProxied(chain.rpc);
       }
       const tokenUsd = prices?.[chain.priceKey] || 0;
       const cost = (gasLimit) => gasGwei * gasLimit * 1e-9 * tokenUsd;
@@ -244,26 +243,45 @@ async function loadEvmTxCosts(prices) {
     })
   );
 
-  tbody.innerHTML = results.map((res, i) => {
+  container.innerHTML = results.map((res, i) => {
     const chain = EVM_CHAINS[i];
     if (res.status !== "fulfilled") {
-      return `<tr>
-        <td data-label="Chain">${chain.name}</td>
-        <td data-label="Gas Price" colspan="5" class="muted">Unable to fetch</td>
-        <td data-label="Explorer"><a href="${chain.explorer}" target="_blank" rel="noopener" style="font-size:11px">Explorer ↗</a></td>
-      </tr>`;
+      return `<div class="evm-chain-card evm-collapsed">
+        <div class="evm-chain-header">
+          <a href="${chain.explorer}" target="_blank" rel="noopener" class="evm-chain-name" title="View ${chain.name} explorer">${chain.name} ↗</a>
+          <span class="evm-gas-price muted">Unable to fetch</span>
+        </div>
+      </div>`;
     }
     const { gasGwei, fmtCost, cost } = res.value;
-    return `<tr>
-      <td data-label="Chain">${chain.name}</td>
-      <td data-label="Gas Price">${gasGwei.toFixed(4)} gwei</td>
-      <td data-label="Send ETH" class="evm-col-extra evm-row-extra">${fmtCost(cost(TX_GAS.send))}</td>
-      <td data-label="ERC-20 Transfer" class="evm-col-extra evm-row-extra">${fmtCost(cost(TX_GAS.erc20))}</td>
-      <td data-label="DEX Swap">${fmtCost(cost(TX_GAS.swap))}</td>
-      <td data-label="LP Stake">${fmtCost(cost(TX_GAS.stake))}</td>
-      <td data-label="Link"><a href="${chain.explorer}" target="_blank" rel="noopener" style="font-size:11px">Explorer ↗</a></td>
-    </tr>`;
+    return `<div class="evm-chain-card evm-collapsed" data-chain="${chain.name}">
+      <div class="evm-chain-header">
+        <a href="${chain.explorer}" target="_blank" rel="noopener" class="evm-chain-name" title="View ${chain.name} explorer">${chain.name} ↗</a>
+        <span class="evm-gas-price">${gasGwei.toFixed(4)} gwei</span>
+        <button class="evm-chain-arrow" title="Toggle details">▼</button>
+      </div>
+      <div class="evm-chain-details">
+        <div class="evm-detail-row"><span class="evm-detail-label">Gas Price</span><span class="evm-detail-value">${gasGwei.toFixed(4)} gwei</span></div>
+        <div class="evm-detail-row"><span class="evm-detail-label">Send ${chain.token}</span><span class="evm-detail-value">${fmtCost(cost(TX_GAS.send))}</span></div>
+        <div class="evm-detail-row"><span class="evm-detail-label">ERC-20 Transfer</span><span class="evm-detail-value">${fmtCost(cost(TX_GAS.erc20))}</span></div>
+        <div class="evm-detail-row"><span class="evm-detail-label">DEX Swap</span><span class="evm-detail-value">${fmtCost(cost(TX_GAS.swap))}</span></div>
+        <div class="evm-detail-row"><span class="evm-detail-label">LP Stake</span><span class="evm-detail-value">${fmtCost(cost(TX_GAS.stake))}</span></div>
+      </div>
+      <div class="evm-chain-summary">
+        <span class="evm-summary-item">Swap ${fmtCost(cost(TX_GAS.swap))}</span>
+        <span class="evm-summary-item">Stake ${fmtCost(cost(TX_GAS.stake))}</span>
+      </div>
+    </div>`;
   }).join("");
+
+  // Wire up per-chain toggle arrows
+  container.querySelectorAll(".evm-chain-arrow").forEach(btn => {
+    btn.addEventListener("click", () => {
+      const card = btn.closest(".evm-chain-card");
+      const expanded = card.classList.toggle("evm-collapsed");
+      btn.textContent = expanded ? "▼" : "▲";
+    });
+  });
 }
 
 // ─── 4. Top Coins table (rendered from cached allCoins) ───
@@ -377,21 +395,34 @@ async function loadChainCoins(chain) {
 }
 
 // ─── 5. DeFi TVL by Chain (DeFiLlama) ───
+const TVL_COLLAPSED_COUNT = 8; // show top 8 by default, rest on expand
+let tvlAllData = [];
+
 async function loadTvl() {
   try {
-    const protocols = await cachedFetch("tvl", LLAMA_PROTOCOLS);
-    const chainTvl = {};
-    for (const p of protocols) {
-      if (!p.chains) continue;
-      for (const ch of p.chains) chainTvl[ch] = (chainTvl[ch] || 0) + (p.tvl || 0);
-    }
-    const sorted = Object.entries(chainTvl).sort((a, b) => b[1] - a[1]).slice(0, 15);
-    const maxTvl = sorted[0]?.[1] || 1;
-    document.getElementById("tvl-list").innerHTML = sorted.map(([name, tvl]) => {
-      const slug = name.toLowerCase().replace(/\s+/g, "-");
-      return `<div class="tvl-row"><span class="tvl-name"><a href="https://defillama.com/chain/${slug}" target="_blank" rel="noopener" title="View ${name} on DeFiLlama">${name} ↗</a></span><div class="tvl-bar-wrap"><div class="tvl-bar" style="width:${(tvl / maxTvl) * 100}%"></div></div><span class="tvl-tvl">${fmtUsd(tvl)}</span></div>`;
-    }).join("");
+    // /v2/chains gives direct per-chain TVL — more accurate than summing protocols
+    const chains = await cachedFetch("tvl", "https://api.llama.fi/v2/chains");
+    // Filter out nulls and sort by TVL descending
+    tvlAllData = chains
+      .filter(c => c.tvl != null && c.tvl > 0)
+      .sort((a, b) => b.tvl - a.tvl)
+      .slice(0, 20); // top 20 chains
+
+    renderTvl();
   } catch (e) { console.error("tvl", e); }
+}
+
+function renderTvl() {
+  const listEl = document.getElementById("tvl-list");
+  if (!listEl) return;
+  const isCollapsed = !document.getElementById("tvl-toggle")?.classList.contains("expanded");
+  const visible = isCollapsed ? tvlAllData.slice(0, TVL_COLLAPSED_COUNT) : tvlAllData;
+  const maxTvl = tvlAllData[0]?.tvl || 1;
+
+  listEl.innerHTML = visible.map(c => {
+    const slug = c.name.toLowerCase().replace(/\s+/g, "-");
+    return `<div class="tvl-row"><span class="tvl-name"><a href="https://defillama.com/chain/${slug}" target="_blank" rel="noopener" title="View ${c.name} on DeFiLlama">${c.name} ↗</a></span><div class="tvl-bar-wrap"><div class="tvl-bar" style="width:${(c.tvl / maxTvl) * 100}%"></div></div><span class="tvl-tvl">${fmtUsd(c.tvl)}</span></div>`;
+  }).join("");
 }
 
 // ─── 6. Stablecoin Yields ───
@@ -1138,16 +1169,13 @@ const refreshHandlers = {
   },
 };
 
-// ─── EVM toggle (collapsed by default) ───
-const evmWrap = document.querySelector("#evm-tx-table")?.closest(".table-wrap");
-if (evmWrap) evmWrap.classList.add("evm-collapsed");
-document.getElementById("evm-toggle")?.addEventListener("click", () => {
-  const wrap = document.querySelector("#evm-tx-table")?.closest(".table-wrap");
-  const btn = document.getElementById("evm-toggle");
-  if (!wrap || !btn) return;
-  wrap.classList.toggle("evm-collapsed");
+// ─── TVL toggle (collapsed by default, shows top 8, expands to 20) ───
+document.getElementById("tvl-toggle")?.addEventListener("click", () => {
+  const btn = document.getElementById("tvl-toggle");
+  if (!btn) return;
   btn.classList.toggle("expanded");
-  btn.textContent = wrap.classList.contains("evm-collapsed") ? "▼" : "▲";
+  btn.textContent = btn.classList.contains("expanded") ? "▲" : "▼";
+  renderTvl();
 });
 
 document.querySelectorAll(".section-refresh").forEach(btn => {
