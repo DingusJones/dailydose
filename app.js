@@ -1,6 +1,6 @@
 // DailyDose — Crypto Dashboard app.js (optimized)
 // APIs: CoinGecko (coins/prices/trending), DeFiLlama (TVL), Alternative.me (Fear & Greed),
-//        Whale Alert, CryptoPanic (news), TradingView (charts), public RPCs (L2 gas)
+//        CoinDesk RSS (news), TradingView (charts), public RPCs (L2 gas)
 // Optimized: consolidated CoinGecko calls, localStorage caching, CORS proxy for RPCs
 
 const CG = "https://api.coingecko.com/api/v3";
