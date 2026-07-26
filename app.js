@@ -188,7 +188,6 @@ const EVM_CHAINS = [
   { name: "Arbitrum", rpc: "https://arb1.arbitrum.io/rpc", token: "ETH", explorer: "https://arbiscan.io/gastracker", priceKey: "ethPrice" },
   { name: "Optimism", rpc: "https://mainnet.optimism.io", token: "ETH", explorer: "https://optimistic.etherscan.io/gastracker", priceKey: "ethPrice" },
   { name: "Polygon", rpc: "https://polygon-rpc.com", token: "MATIC", explorer: "https://polygonscan.com/gastracker", priceKey: "maticPrice" },
-  { name: "BNB Chain", rpc: "https://bsc-dataseed.binance.org", token: "BNB", explorer: "https://bscscan.com/gastracker", priceKey: "bnbPrice" },
 ];
 const TX_GAS = { send: 21000, erc20: 65000, swap: 150000, stake: 300000 };
 
@@ -1007,19 +1006,20 @@ async function refreshAll() {
 
   try {
     // Phase 1: CoinGecko data (3 calls) + independent APIs (4 calls) in parallel
-    const [cgPrices, , , , ,] = await Promise.all([
+    // allSettled so one API failure can't nuke everything else
+    const [cgRes] = await Promise.allSettled([
       loadCoinGeckoData(),
       loadGas(),
       loadTvl(),
       loadYields(yieldPlatformFilter, yieldChainFilter),
-      loadAllNews(),
+      loadNews(),
       loadFear(),
     ]);
 
-    if (cgPrices) lastCgPrices = cgPrices;
+    if (cgRes.status === "fulfilled" && cgRes.value) lastCgPrices = cgRes.value;
 
     // Phase 2: EVM tx costs (uses token prices from Phase 1, 6 parallel RPC calls)
-    if (cgPrices) await loadEvmTxCosts(cgPrices);
+    if (lastCgPrices.ethPrice > 0) await loadEvmTxCosts(lastCgPrices);
 
     loadTradingView();
     document.getElementById("last-updated").textContent = "Updated " + new Date().toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" });
@@ -1085,7 +1085,7 @@ const refreshHandlers = {
   },
   async news(btn) {
     btn.classList.add("spinning");
-    await loadAllNews();
+    await loadNews();
     newsDisplayCount = NEWS_PAGE_SIZE;
     renderNews();
     btn.classList.remove("spinning");
