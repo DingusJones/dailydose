@@ -287,8 +287,8 @@ function renderCoins(coins) {
     return `<tr class="coin-row" data-tv="${primary}" data-tv-fallback="${fallback || ""}" data-name="${c.name}" title="Rank #${i + 1}">
       <td class="rank-cell">${i + 1}</td>
       <td><div class="coin-cell"><img src="${c.image}" alt="" loading="lazy" onerror="this.style.display='none'"><a href="${cgUrl}" target="_blank" rel="noopener" class="coin-name-link" title="Research ${c.name} on CoinGecko">${c.name}</a><a href="${cgUrl}" target="_blank" rel="noopener" class="coin-sym-link muted" title="${c.name} on CoinGecko">${c.symbol.toUpperCase()}</a></div></td>
-      <td class="price-cell" style="cursor:pointer" data-ds="${dexScreenerUrl}" title="Click for ${c.name} charts & volume on DexScreener">${fmtUsd(c.current_price)}</td>
-      <td class="${changeClass(pct24)}">${fmtPct(pct24)}</td>
+      <td class="price-cell" style="cursor:pointer" title="Click to chart ${c.name}">${fmtUsd(c.current_price)}</td>
+      <td class="pct-cell ${changeClass(pct24)}" style="cursor:pointer" data-ds="${dexScreenerUrl}" title="Click for ${c.name} charts & volume on DexScreener">${fmtPct(pct24)}</td>
       <td>${fmtUsd(c.market_cap)}</td>
       <td>${fmtUsd(c.total_volume)}</td>
       <td>${sparklineSvg(c.sparkline_in_7d?.price, color)}</td>
@@ -298,12 +298,23 @@ function renderCoins(coins) {
   tbody.querySelectorAll(".coin-row").forEach(row => {
     const tv = row.getAttribute("data-tv");
     const name = row.getAttribute("data-name");
-    // Price cell click → open DexScreener for volume/charts (different from TradingView above)
+    // Price cell click → load TradingView chart above
     const priceCell = row.querySelector(".price-cell");
     if (priceCell) {
       priceCell.addEventListener("click", (e) => {
         e.stopPropagation();
-        const dsUrl = priceCell.getAttribute("data-ds");
+        tbody.querySelectorAll(".coin-row").forEach(r => r.classList.remove("selected-coin"));
+        row.classList.add("selected-coin");
+        loadTradingView(tv, name);
+        document.getElementById("tradingview-chart").scrollIntoView({ behavior: "smooth", block: "center" });
+      });
+    }
+    // 24h% cell click → open DexScreener for volume/charts
+    const pctCell = row.querySelector(".pct-cell");
+    if (pctCell) {
+      pctCell.addEventListener("click", (e) => {
+        e.stopPropagation();
+        const dsUrl = pctCell.getAttribute("data-ds");
         if (dsUrl) window.open(dsUrl, "_blank", "noopener");
       });
     }
