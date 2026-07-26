@@ -155,6 +155,33 @@ a:hover { text-decoration: underline; }
 .tvl-toggle:hover { background: var(--bg-3); color: var(--accent); }
 .tvl-toggle.expanded { transform: rotate(180deg); }
 
+/* Section collapse button — same circle style */
+.section-collapse {
+  background: transparent;
+  border: none;
+  color: var(--text-muted);
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  cursor: pointer;
+  font-size: 12px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.15s;
+  flex-shrink: 0;
+}
+.section-collapse:hover { background: var(--bg-3); color: var(--accent); }
+.section-collapse.collapsed { transform: rotate(-90deg); }
+
+/* Collapsible section body — hidden when collapsed */
+.collapsible.collapsed .section-body { display: none; }
+.collapsible.collapsed .card { padding-bottom: 14px; }
+/* Market grid doesn't use section-body — hide the grid items directly */
+.collapsible.collapsed.market-grid > * { display: none; }
+/* Ticker section doesn't use section-body — hide the card content */
+.collapsible.collapsed .ticker-card { display: none; }
+
 /* MAIN LAYOUT */
 main {
   max-width: 1400px;
@@ -248,14 +275,21 @@ main {
   #last-updated { font-size: 11px; }
   .btn { padding: 6px 12px; font-size: 12px; }
 
+/* Ticker — global styles */
+.ticker-card { padding: 0 !important; }
+.ticker-header { display: flex; align-items: center; justify-content: flex-end; padding: 4px 10px 0; }
+.collapsible.collapsed .ticker-card .section-body { display: none; }
+
   /* Ticker card — full bleed on mobile without causing page overflow */
-  .ticker-card {
-    width: calc(100% + 24px);
-    margin-left: -12px;
-    border-radius: 0;
-    border-left: none;
-    border-right: none;
-    max-width: 100vw;
+  @media (max-width: 600px) {
+    .ticker-card {
+      width: calc(100% + 24px);
+      margin-left: -12px;
+      border-radius: 0;
+      border-left: none;
+      border-right: none;
+      max-width: 100vw;
+    }
   }
 
   /* Stat cards — centered text on mobile */

@@ -6,7 +6,7 @@
   <title>DailyDose — Crypto Dashboard</title>
   <meta name="description" content="Your daily dose of crypto: trending news, whale alerts, and top coins by chain." />
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E%F0%9F%92%AC%3C/text%3E%3C/svg%3E" />
-  <link rel="stylesheet" href="styles.css?v=30" />
+  <link rel="stylesheet" href="styles.css?v=31" />
 </head>
 <body>
   <header class="topbar">
@@ -22,15 +22,20 @@
 
   <main>
     <!-- SECTION 0: Auto-scrolling price ticker -->
-    <section class="row" style="margin-bottom:0">
+    <section class="row collapsible" style="margin-bottom:0">
       <div class="card span-3 ticker-card" style="padding:0;overflow:hidden">
-        <div id="price-ticker"></div>
+        <div class="ticker-header" style="display:flex;align-items:center;justify-content:flex-end;padding:4px 10px 0">
+          <button class="section-collapse ticker-collapse" title="Collapse/expand ticker">▼</button>
+        </div>
+        <div class="section-body">
+          <div id="price-ticker"></div>
+        </div>
       </div>
     </section>
 
     <!-- SECTION 1: Market Snapshot (clickable cards) -->
-    <div class="market-refresh-bar"><span class="muted small" style="margin-left:auto">Auto-refreshes every 5 min</span><button class="section-refresh" data-refresh="market" title="Refresh market stats">↻</button></div>
-    <section class="grid market-grid" id="market-grid">
+    <div class="market-refresh-bar"><span class="muted small" style="margin-left:auto">Auto-refreshes every 5 min</span><button class="section-refresh" data-refresh="market" title="Refresh market stats">↻</button><button class="section-collapse market-collapse" title="Collapse/expand section">▼</button></div>
+    <section class="grid market-grid collapsible" id="market-grid">
       <a class="card stat-card stat-link" href="https://www.coingecko.com/en/global-charts" target="_blank" rel="noopener" title="Global Crypto Market Cap on CoinGecko">
         <div class="stat-label">Global Market Cap</div>
         <div class="stat-value" id="global-mcap">—</div>
@@ -54,21 +59,24 @@
     </section>
 
     <!-- SECTION 2: TradingView Live Chart -->
-    <section class="row">
+    <section class="row collapsible">
       <div class="card span-3">
         <div class="card-header">
           <h2 id="chart-title">📈 Bitcoin — Live Chart</h2>
           <div class="section-actions">
             <button class="section-refresh" data-refresh="chart" title="Refresh chart">↻</button>
             <a id="tv-ext-link" href="https://www.tradingview.com/chart/?symbol=COINBASE:BTCUSD" target="_blank" rel="noopener" class="btn" style="font-size:12px;text-decoration:none">Open in TradingView ↗</a>
+            <button class="section-collapse" title="Collapse/expand section">▼</button>
           </div>
         </div>
-        <div id="tradingview-chart" style="height:400px;width:100%;border-radius:8px;overflow:hidden;"></div>
+        <div class="section-body">
+          <div id="tradingview-chart" style="height:400px;width:100%;border-radius:8px;overflow:hidden;"></div>
+        </div>
       </div>
     </section>
 
     <!-- SECTION 2a: Top Coins by Chain -->
-    <section class="row">
+    <section class="row collapsible">
       <div class="card span-3">
         <div class="card-header">
           <h2>🏆 Top Coins by Chain</h2>
@@ -85,152 +93,193 @@
               <option value="optimistic-ethereum">Optimism</option>
               <option value="avalanche">Avalanche</option>
             </select>
+            <button class="section-collapse" title="Collapse/expand section">▼</button>
           </div>
         </div>
-        <div class="table-wrap">
-          <table class="coins-table">
-            <thead>
-              <tr>
-                <th>#</th>
-                <th>Coin</th>
-                <th>Price</th>
-                <th>24h</th>
-                <th>Market Cap</th>
-                <th>Volume</th>
-                <th>7d</th>
-              </tr>
-            </thead>
-            <tbody id="coins-tbody"></tbody>
-          </table>
+        <div class="section-body">
+          <div class="table-wrap">
+            <table class="coins-table">
+              <thead>
+                <tr>
+                  <th>#</th>
+                  <th>Coin</th>
+                  <th>Price</th>
+                  <th>24h</th>
+                  <th>Market Cap</th>
+                  <th>Volume</th>
+                  <th>7d</th>
+                </tr>
+              </thead>
+              <tbody id="coins-tbody"></tbody>
+            </table>
+          </div>
         </div>
       </div>
     </section>
 
     <!-- SECTION 2b: Trending Coins -->
-    <section class="row">
+    <section class="row collapsible">
       <div class="card span-3">
         <div class="card-header">
           <h2>🔥 Trending Coins</h2>
-          <button class="section-refresh" data-refresh="trending" title="Refresh trending">↻</button>
+          <div class="section-actions">
+            <button class="section-refresh" data-refresh="trending" title="Refresh trending">↻</button>
+            <button class="section-collapse" title="Collapse/expand section">▼</button>
+          </div>
         </div>
-        <p class="muted small">Most searched in the last 24h</p>
-        <ol id="trending-list" class="trending-list"></ol>
+        <div class="section-body">
+          <p class="muted small">Most searched in the last 24h</p>
+          <ol id="trending-list" class="trending-list"></ol>
+        </div>
       </div>
     </section>
 
     <!-- SECTION 3: DeFi TVL by Chain (DeFiLlama — clickable) -->
-    <section class="row">
+    <section class="row collapsible">
       <div class="card span-3">
         <div class="card-header">
           <h2>🏦 DeFi TVL by Chain</h2>
           <div class="section-actions">
             <button class="section-refresh" data-refresh="tvl" title="Refresh TVL">↻</button>
             <button class="tvl-toggle" id="tvl-toggle" title="Toggle full list">▼</button>
+            <button class="section-collapse" title="Collapse/expand section">▼</button>
           </div>
         </div>
-        <p class="muted small">Click any chain to view on DeFiLlama — <a href="https://defillama.com/chains" target="_blank" rel="noopener" class="muted">defillama.com/chains</a></p>
-        <div class="tvl-list" id="tvl-list"></div>
+        <div class="section-body">
+          <p class="muted small">Click any chain to view on DeFiLlama — <a href="https://defillama.com/chains" target="_blank" rel="noopener" class="muted">defillama.com/chains</a></p>
+          <div class="tvl-list" id="tvl-list"></div>
+        </div>
       </div>
     </section>
 
     <!-- SECTION 4: Stablecoin Yields + New Opportunities -->
-    <section class="row">
+    <section class="row collapsible">
       <div class="card span-3">
         <div class="card-header">
           <h2>💰 Best Stablecoin Yields</h2>
-          <button class="section-refresh" data-refresh="yields" title="Refresh yields">↻</button>
+          <div class="section-actions">
+            <button class="section-refresh" data-refresh="yields" title="Refresh yields">↻</button>
+            <button class="section-collapse" title="Collapse/expand section">▼</button>
+          </div>
         </div>
-        <div class="yield-platform-tabs">
-          <button class="yield-platform-tab active" data-platform="all">All</button>
-          <button class="yield-platform-tab" data-platform="morpho-blue">Morpho</button>
-          <button class="yield-platform-tab" data-platform="aave-v3">Aave</button>
-          <button class="yield-platform-tab" data-platform="moonwell-lending">Moonwell</button>
-          <button class="yield-platform-tab" data-platform="jupiter-lend">Jupiter</button>
-          <button class="yield-platform-tab" data-platform="kamino-lend">Kamino</button>
+        <div class="section-body">
+          <div class="yield-platform-tabs">
+            <button class="yield-platform-tab active" data-platform="all">All</button>
+            <button class="yield-platform-tab" data-platform="morpho-blue">Morpho</button>
+            <button class="yield-platform-tab" data-platform="aave-v3">Aave</button>
+            <button class="yield-platform-tab" data-platform="moonwell-lending">Moonwell</button>
+            <button class="yield-platform-tab" data-platform="jupiter-lend">Jupiter</button>
+            <button class="yield-platform-tab" data-platform="kamino-lend">Kamino</button>
+          </div>
+          <div class="yield-chain-tabs">
+            <button class="yield-chain-tab active" data-chain="all">All</button>
+            <button class="yield-chain-tab" data-chain="base">Base</button>
+            <button class="yield-chain-tab" data-chain="ethereum">ETH</button>
+            <button class="yield-chain-tab" data-chain="solana">SOL</button>
+            <button class="yield-chain-tab" data-chain="arbitrum">ARB</button>
+            <button class="yield-chain-tab" data-chain="polygon">POLY</button>
+            <button class="yield-chain-tab" data-chain="optimism">OP</button>
+          </div>
+          <div id="yield-list" class="yield-list"></div>
         </div>
-        <div class="yield-chain-tabs">
-          <button class="yield-chain-tab active" data-chain="all">All</button>
-          <button class="yield-chain-tab" data-chain="base">Base</button>
-          <button class="yield-chain-tab" data-chain="ethereum">ETH</button>
-          <button class="yield-chain-tab" data-chain="solana">SOL</button>
-          <button class="yield-chain-tab" data-chain="arbitrum">ARB</button>
-          <button class="yield-chain-tab" data-chain="polygon">POLY</button>
-          <button class="yield-chain-tab" data-chain="optimism">OP</button>
-        </div>
-        <div id="yield-list" class="yield-list"></div>
       </div>
     </section>
 
     <!-- SECTION 4b: Crypto News (full width, filterable, infinite scroll) -->
-    <section class="row">
+    <section class="row collapsible">
       <div class="card span-3 news-card">
         <div class="card-header">
           <h2>📰 Crypto News</h2>
-          <button class="section-refresh" data-refresh="news" title="Refresh news">↻</button>
+          <div class="section-actions">
+            <button class="section-refresh" data-refresh="news" title="Refresh news">↻</button>
+            <button class="section-collapse" title="Collapse/expand section">▼</button>
+          </div>
         </div>
-        <div class="news-filter-tabs" id="news-filter-tabs">
-          <button class="news-filter-tab active" data-filter="all">All</button>
-          <button class="news-filter-tab" data-filter="Markets">Markets</button>
-          <button class="news-filter-tab" data-filter="Business">Business</button>
-          <button class="news-filter-tab" data-filter="Tech">Tech</button>
-          <button class="news-filter-tab" data-filter="DeFi">DeFi</button>
-          <button class="news-filter-tab" data-filter="AI">AI</button>
-          <button class="news-filter-tab" data-filter="Opinion">Opinion</button>
-          <button class="news-filter-tab" data-filter="Policy">Policy</button>
-        </div>
-        <div id="news-scroll" class="news-scroll">
-          <div id="news-list" class="news-list"></div>
-          <div id="news-sentinel" class="news-sentinel">Loading more…</div>
+        <div class="section-body">
+          <div class="news-filter-tabs" id="news-filter-tabs">
+            <button class="news-filter-tab active" data-filter="all">All</button>
+            <button class="news-filter-tab" data-filter="Markets">Markets</button>
+            <button class="news-filter-tab" data-filter="Business">Business</button>
+            <button class="news-filter-tab" data-filter="Tech">Tech</button>
+            <button class="news-filter-tab" data-filter="DeFi">DeFi</button>
+            <button class="news-filter-tab" data-filter="AI">AI</button>
+            <button class="news-filter-tab" data-filter="Opinion">Opinion</button>
+            <button class="news-filter-tab" data-filter="Policy">Policy</button>
+          </div>
+          <div id="news-scroll" class="news-scroll">
+            <div id="news-list" class="news-list"></div>
+            <div id="news-sentinel" class="news-sentinel">Loading more…</div>
+          </div>
         </div>
       </div>
     </section>
 
     <!-- SECTION 5: EVM Transaction Costs -->
-    <section class="row">
+    <section class="row collapsible">
       <div class="card span-3">
         <div class="card-header">
           <h2>⛽ EVM Transaction Costs</h2>
-          <button class="section-refresh" data-refresh="evm" title="Refresh EVM costs">↻</button>
+          <div class="section-actions">
+            <button class="section-refresh" data-refresh="evm" title="Refresh EVM costs">↻</button>
+            <button class="section-collapse" title="Collapse/expand section">▼</button>
+          </div>
         </div>
-        <p class="muted small">Estimated cost of common transactions across EVM chains — <a href="https://etherscan.io/gastracker" target="_blank" rel="noopener" class="muted">data via public RPCs</a></p>
-        <div id="evm-chain-cards" class="evm-chain-cards" style="margin-top:14px"></div>
+        <div class="section-body">
+          <p class="muted small">Estimated cost of common transactions across EVM chains — <a href="https://etherscan.io/gastracker" target="_blank" rel="noopener" class="muted">data via public RPCs</a></p>
+          <div id="evm-chain-cards" class="evm-chain-cards" style="margin-top:14px"></div>
+        </div>
       </div>
     </section>
 
     <!-- SECTION 6: Fear & Greed (gasoline gauge) + BTC/ETH -->
-    <section class="row">
+    <section class="row collapsible">
       <div class="card span-1 fear-card">
         <div class="card-header">
           <h2>😤 Fear &amp; Greed</h2>
-          <button class="section-refresh" data-refresh="fear" title="Refresh Fear & Greed">↻</button>
+          <div class="section-actions">
+            <button class="section-refresh" data-refresh="fear" title="Refresh Fear & Greed">↻</button>
+            <button class="section-collapse" title="Collapse/expand section">▼</button>
+          </div>
         </div>
-        <div class="gasoline-gauge" id="fear-gauge">
-          <div class="gauge-track">
-            <div class="gauge-fill" id="gauge-fill" style="width:50%"></div>
-            <div class="gauge-needle" id="gauge-needle" style="left:50%"></div>
+        <div class="section-body">
+          <div class="gasoline-gauge" id="fear-gauge">
+            <div class="gauge-track">
+              <div class="gauge-fill" id="gauge-fill" style="width:50%"></div>
+              <div class="gauge-needle" id="gauge-needle" style="left:50%"></div>
+            </div>
+            <div class="gauge-labels">
+              <span>Extreme Fear</span>
+              <span>Neutral</span>
+              <span>Extreme Greed</span>
+            </div>
+            <div class="gauge-value" id="fear-value">—</div>
+            <div class="gauge-class" id="fear-label">Loading…</div>
           </div>
-          <div class="gauge-labels">
-            <span>Extreme Fear</span>
-            <span>Neutral</span>
-            <span>Extreme Greed</span>
-          </div>
-          <div class="gauge-value" id="fear-value">—</div>
-          <div class="gauge-class" id="fear-label">Loading…</div>
         </div>
       </div>
       <div class="card span-1">
         <div class="card-header">
           <h2>₿ Bitcoin</h2>
-          <button class="section-refresh" data-refresh="btc" title="Refresh BTC data">↻</button>
+          <div class="section-actions">
+            <button class="section-refresh" data-refresh="btc" title="Refresh BTC data">↻</button>
+            <button class="section-collapse" title="Collapse/expand section">▼</button>
+          </div>
         </div>
-        <div id="btc-info" class="big-coin"></div>
+        <div class="section-body">
+          <div id="btc-info" class="big-coin"></div>
+        </div>
       </div>
       <div class="card span-1">
         <div class="card-header">
           <h2>Ξ Ethereum</h2>
-          <button class="section-refresh" data-refresh="eth" title="Refresh ETH data">↻</button>
+          <div class="section-actions">
+            <button class="section-refresh" data-refresh="eth" title="Refresh ETH data">↻</button>
+            <button class="section-collapse" title="Collapse/expand section">▼</button>
+          </div>
         </div>
-        <div id="eth-info" class="big-coin"></div>
+        <div class="section-body">
+          <div id="eth-info" class="big-coin"></div>
+        </div>
       </div>
     </section>
 
@@ -241,6 +290,6 @@
     </footer>
   </main>
 
-  <script src="app.js?v=30"></script>
+  <script src="app.js?v=31"></script>
 </body>
 </html>

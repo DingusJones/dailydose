@@ -95,6 +95,16 @@ function changeClass(n) {
   if (n == null || isNaN(n)) return "";
   return n >= 0 ? "up" : "down";
 }
+
+// TVL formatter — 3 decimal places to match DeFiLlama exactly
+function fmtTvl(n) {
+  if (n == null || isNaN(n)) return "—";
+  if (n >= 1e12) return "$" + (n / 1e12).toFixed(3) + "T";
+  if (n >= 1e9) return "$" + (n / 1e9).toFixed(3) + "B";
+  if (n >= 1e6) return "$" + (n / 1e6).toFixed(3) + "M";
+  if (n >= 1e3) return "$" + (n / 1e3).toFixed(3) + "K";
+  return "$" + n.toFixed(3);
+}
 function sparklineSvg(data, color) {
   if (!data || data.length < 2) return "";
   const w = 80, h = 30, max = Math.max(...data), min = Math.min(...data);
@@ -420,8 +430,9 @@ function renderTvl() {
   const maxTvl = tvlAllData[0]?.tvl || 1;
 
   listEl.innerHTML = visible.map(c => {
-    const slug = c.name.toLowerCase().replace(/\s+/g, "-");
-    return `<div class="tvl-row"><span class="tvl-name"><a href="https://defillama.com/chain/${slug}" target="_blank" rel="noopener" title="View ${c.name} on DeFiLlama">${c.name} ↗</a></span><div class="tvl-bar-wrap"><div class="tvl-bar" style="width:${(c.tvl / maxTvl) * 100}%"></div></div><span class="tvl-tvl">${fmtUsd(c.tvl)}</span></div>`;
+  const slug = c.name.toLowerCase().replace(/\s+/g, "-");
+  const tvlStr = fmtTvl(c.tvl);
+  return `<div class="tvl-row"><span class="tvl-name"><a href="https://defillama.com/chain/${slug}" target="_blank" rel="noopener" title="View ${c.name} on DeFiLlama">${c.name} ↗</a></span><div class="tvl-bar-wrap"><div class="tvl-bar" style="width:${(c.tvl / maxTvl) * 100}%"></div></div><span class="tvl-tvl">${tvlStr}</span></div>`;
   }).join("");
 }
 
@@ -1168,6 +1179,22 @@ const refreshHandlers = {
     btn.classList.remove("spinning");
   },
 };
+
+// ─── Section collapse toggles for ALL sections ───
+document.querySelectorAll(".section-collapse").forEach(btn => {
+  btn.addEventListener("click", () => {
+    // Find the parent collapsible section
+    let section = btn.closest(".collapsible");
+    // Market grid collapse button is in the refresh bar, not inside the section
+    if (!section && btn.classList.contains("market-collapse")) {
+      section = document.getElementById("market-grid");
+    }
+    if (!section) return;
+    const isCollapsed = section.classList.toggle("collapsed");
+    btn.classList.toggle("collapsed", isCollapsed);
+    btn.textContent = isCollapsed ? "▶" : "▼";
+  });
+});
 
 // ─── TVL toggle (collapsed by default, shows top 8, expands to 20) ───
 document.getElementById("tvl-toggle")?.addEventListener("click", () => {
