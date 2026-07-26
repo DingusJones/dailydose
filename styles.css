@@ -369,7 +369,7 @@ main {
   /* News: exactly 3 stories on mobile — !important needed because desktop
      .news-scroll { max-height: 720px } on line 749 comes AFTER this rule
      and would override it since they have equal specificity */
-  .news-scroll { max-height: 240px !important; overflow-y: auto !important; }
+  .news-scroll { max-height: 380px !important; overflow-y: auto !important; }
 
   /* EVM chain cards — stacked on mobile */
   .evm-chain-card { margin-bottom: 8px; }
