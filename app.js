@@ -276,8 +276,8 @@ function renderCoins(coins) {
     const pct24 = c.price_change_percentage_24h;
     const color = pct24 >= 0 ? "#16c784" : "#ea3943";
     const { primary, fallback } = coinToTvSymbolWithFallback(c);
-    return `<tr class="coin-row" data-tv="${primary}" data-tv-fallback="${fallback || ""}" data-name="${c.name}" style="cursor:pointer" title="Click to chart ${c.name}">
-      <td>${i + 1}</td>
+    return `<tr class="coin-row" data-tv="${primary}" data-tv-fallback="${fallback || ""}" data-name="${c.name}" style="cursor:pointer" title="Rank #${i + 1} — Click to chart ${c.name}">
+      <td class="rank-cell">${i + 1}</td>
       <td><div class="coin-cell"><img src="${c.image}" alt="" loading="lazy" onerror="this.style.display='none'"><span>${c.name}</span><span class="muted">${c.symbol.toUpperCase()}</span></div></td>
       <td>${fmtUsd(c.current_price)}</td>
       <td class="${changeClass(pct24)}">${fmtPct(pct24)}</td>
@@ -300,25 +300,49 @@ function renderCoins(coins) {
   });
 }
 
+// Pre-fetch chain coins in background after initial load — makes switching chains instant
+const preloadedChains = {};
+function preloadChainCoins() {
+  const chains = Object.keys(CHAIN_CATEGORIES).filter(k => k !== "all" && !preloadedChains[k]);
+  chains.forEach(chain => {
+    const category = CHAIN_CATEGORIES[chain];
+    // Use stale-while-revalidate: if cached, skip; if not, fetch quietly
+    const cacheKey = `coins_${chain}`;
+    const cached = cache.get(cacheKey) || cache.getStale(cacheKey);
+    if (cached) {
+      preloadedChains[chain] = true;
+      return;
+    }
+    // Fetch in background — don't block UI
+    fetch(`${CG}/coins/markets?vs_currency=usd&category=${category}&order=market_cap_desc&per_page=25&page=1&sparkline=true&price_change_percentage=24h,7d`)
+      .then(r => r.ok ? r.json() : null)
+      .then(data => { if (data) { cache.set(cacheKey, data); preloadedChains[chain] = true; } })
+      .catch(() => {});
+  });
+}
+
 async function loadChainCoins(chain) {
   const tbody = document.getElementById("coins-tbody");
   const category = CHAIN_CATEGORIES[chain];
   if (!category) {
-    // "all" — use already-fetched allCoins
     renderCoins(allCoins);
     return;
   }
-  // Show loading state
-  tbody.innerHTML = `<tr><td colspan="5" style="color:var(--text-muted);padding:20px">Loading ${chain} coins…</td></tr>`;
+  const cacheKey = `coins_${chain}`;
+  // Instant: show stale cached data if available
+  const stale = cache.getStale(cacheKey);
+  if (stale) renderCoins(stale);
+  else tbody.innerHTML = `<tr><td colspan="5" style="color:var(--text-muted);padding:20px">Loading…</td></tr>`;
+  // Then fetch fresh data (cachedFetch returns instantly if fresh cache exists)
   try {
-    const coins = await cachedFetch(
-      `coins_${chain}`,
-      `${CG}/coins/markets?vs_currency=usd&category=${category}&order=market_cap_desc&per_page=25&page=1&sparkline=true&price_change_percentage=24h,7d`
-    );
+    const coins = await cachedFetch(cacheKey, `${CG}/coins/markets?vs_currency=usd&category=${category}&order=market_cap_desc&per_page=25&page=1&sparkline=true&price_change_percentage=24h,7d`);
     renderCoins(coins);
   } catch (e) {
-    console.error("chain coins", e);
-    tbody.innerHTML = `<tr><td colspan="5" style="color:var(--text-muted);padding:20px">Failed to load ${chain} coins</td></tr>`;
+    if (!stale) {
+      console.error("chain coins", e);
+      tbody.innerHTML = `<tr><td colspan="5" style="color:var(--text-muted);padding:20px">Failed to load</td></tr>`;
+    }
+    // If we have stale data, keep showing it — don't show error
   }
 }
 
@@ -1023,6 +1047,8 @@ setInterval(refreshAll, 5 * 60 * 1000);
 setupYieldTabs();
 setupNewsFilterTabs();
 setupNewsScroll();
+// Pre-fetch chain coins in background after 3s (don't compete with initial load)
+setTimeout(preloadChainCoins, 3000);
 
 // ─── Init ───
 refreshAll();

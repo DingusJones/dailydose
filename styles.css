@@ -229,7 +229,8 @@ main {
   .coin-cell span { font-size: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 70px; }
   .coin-cell .muted { font-size: 10px; max-width: 35px; }
   .sparkline { width: 50px; height: 20px; }
-  /* Hide Volume, 7d, and Market Cap columns on mobile — not enough space */
+  /* Hide Rank, Market Cap, Volume, 7d columns on mobile */
+  .coins-table th:nth-child(1), .coins-table td:nth-child(1),
   .coins-table th:nth-child(5), .coins-table td:nth-child(5),
   .coins-table th:nth-child(6), .coins-table td:nth-child(6),
   .coins-table th:nth-child(7), .coins-table td:nth-child(7) { display: none; }
