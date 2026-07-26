@@ -185,12 +185,12 @@ main {
   .stat-change { font-size: 11px; }
 
   /* Ticker tape — custom auto-scroll, works on mobile */
-  #price-ticker { width: 100%; overflow: hidden; min-width: 0; }
+  #price-ticker { width: 100%; overflow: hidden; min-width: 0; touch-action: pan-x; }
   .ticker-track {
     display: flex;
     gap: 0;
     white-space: nowrap;
-    animation: ticker-scroll 40s linear infinite;
+    animation: ticker-scroll 32s linear infinite;
     will-change: transform;
   }
   .ticker-track:hover { animation-play-state: paused; }
@@ -269,9 +269,13 @@ main {
   .big-coin-stats { gap: 8px; font-size: 11px; }
 
   /* News */
-  .news-item { padding: 10px 0; }
-  .news-title { font-size: 13px; }
-  .news-meta { font-size: 10px; }
+  .news-item { padding: 14px 0; gap: 10px; }
+  .news-item-img { width: 64px; height: 64px; border-radius: 6px; }
+  .news-title { font-size: 14px; }
+  .news-desc { font-size: 12px; -webkit-line-clamp: 2; }
+  .news-meta { font-size: 10px; gap: 6px; }
+  .news-filter-tab { padding: 5px 10px; font-size: 11px; }
+  .news-scroll { max-height: 600px; }
 
   /* EVM tx table — horizontal scroll */
   #evm-tx-table { min-width: 600px; font-size: 12px; }
@@ -541,13 +545,104 @@ main {
 .new-yield-list .yield-apy { color: var(--yellow); }
 
 /* NEWS */
-.news-list { display: flex; flex-direction: column; gap: 12px; margin-top: 14px; }
-.news-item { padding: 12px 0; border-bottom: 1px solid var(--border); }
+.news-card { padding: 20px; }
+.news-filter-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 0 0 14px 0;
+}
+.news-filter-tab {
+  background: var(--bg-3);
+  color: var(--text-muted);
+  border: 1px solid var(--border);
+  padding: 6px 14px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 700;
+  transition: all 0.15s;
+}
+.news-filter-tab:hover { color: var(--text); border-color: var(--accent); }
+.news-filter-tab.active {
+  background: var(--accent);
+  color: #fff;
+  border-color: var(--accent);
+}
+.news-scroll {
+  max-height: 720px;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: thin;
+  scrollbar-color: var(--bg-3) transparent;
+}
+.news-scroll::-webkit-scrollbar { width: 6px; }
+.news-scroll::-webkit-scrollbar-track { background: transparent; }
+.news-scroll::-webkit-scrollbar-thumb { background: var(--bg-3); border-radius: 3px; }
+.news-list { display: flex; flex-direction: column; gap: 0; }
+.news-item {
+  display: flex;
+  gap: 14px;
+  padding: 16px 0;
+  border-bottom: 1px solid var(--border);
+  align-items: flex-start;
+}
 .news-item:last-child { border-bottom: 0; }
-.news-title { font-weight: 500; line-height: 1.4; }
-.news-title a { color: var(--text); }
+.news-item-img {
+  width: 80px;
+  height: 80px;
+  border-radius: 8px;
+  object-fit: cover;
+  flex-shrink: 0;
+  background: var(--bg-3);
+}
+.news-item-body { flex: 1; min-width: 0; }
+.news-title {
+  font-size: 15px;
+  font-weight: 700;
+  line-height: 1.35;
+  letter-spacing: -0.2px;
+}
+.news-title a { color: var(--text); text-decoration: none; }
 .news-title a:hover { color: var(--accent); }
-.news-meta { color: var(--text-muted); font-size: 11px; margin-top: 4px; }
+.news-desc {
+  font-size: 13px;
+  color: var(--text-muted);
+  line-height: 1.4;
+  margin: 6px 0 0 0;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.news-meta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 8px;
+  font-size: 11px;
+  color: var(--text-muted);
+}
+.news-source { font-weight: 700; color: var(--accent); }
+.news-cat-badge {
+  display: inline-block;
+  font-size: 9px;
+  font-weight: 700;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  background: var(--bg-3);
+  border: 1px solid var(--border);
+  padding: 2px 6px;
+  border-radius: 4px;
+  letter-spacing: 0.3px;
+}
+.news-sentinel {
+  text-align: center;
+  color: var(--text-muted);
+  font-size: 12px;
+  padding: 16px 0;
+}
+.news-sentinel.hidden { display: none; }
 
 /* FEAR & GREED — Car Gasoline Gauge */
 .fear-card { text-align: center; }

@@ -6,7 +6,7 @@
   <title>DailyDose — Crypto Dashboard</title>
   <meta name="description" content="Your daily dose of crypto: trending news, whale alerts, and top coins by chain." />
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E%F0%9F%92%AC%3C/text%3E%3C/svg%3E" />
-  <link rel="stylesheet" href="styles.css?v=17" />
+  <link rel="stylesheet" href="styles.css?v=18" />
 </head>
 <body>
   <header class="topbar">
@@ -17,7 +17,6 @@
       <span class="disclaimer-badge">⚠ Not Financial Advice</span>
     </div>
     <div class="meta">
-      <span id="last-updated" class="muted">Loading…</span>
       <button id="refresh-btn" class="btn">↻ Refresh</button>
     </div>
   </header>
@@ -32,17 +31,17 @@
 
     <!-- SECTION 1: Market Snapshot (clickable cards) -->
     <section class="grid market-grid" id="market-grid">
-      <a class="card stat-card stat-link" href="https://www.coingecko.com/en/global-crypto-market-cap-2025" target="_blank" rel="noopener" title="Global Crypto Market Cap on CoinGecko">
+      <a class="card stat-card stat-link" href="https://www.coingecko.com/en/global-charts" target="_blank" rel="noopener" title="Global Crypto Market Cap on CoinGecko">
         <div class="stat-label">Global Market Cap</div>
         <div class="stat-value" id="global-mcap">—</div>
         <div class="stat-change" id="global-mcap-change">—</div>
       </a>
-      <a class="card stat-card stat-link" href="https://www.coingecko.com/en/exchanges/binance" target="_blank" rel="noopener" title="24h Volume on CoinGecko">
+      <a class="card stat-card stat-link" href="https://www.coingecko.com/en/global-charts" target="_blank" rel="noopener" title="24h Volume on CoinGecko Global Charts">
         <div class="stat-label">24h Volume</div>
         <div class="stat-value" id="global-vol">—</div>
         <div class="stat-change muted">across all exchanges</div>
       </a>
-      <a class="card stat-card stat-link" href="https://www.tradingview.com/chart/?symbol=CRYPTOCAP:BTC.D" target="_blank" rel="noopener" title="BTC Dominance chart on TradingView">
+      <a class="card stat-card stat-link" href="https://www.coingecko.com/en/global-charts" target="_blank" rel="noopener" title="BTC Dominance on CoinGecko Global Charts">
         <div class="stat-label">BTC Dominance</div>
         <div class="stat-value" id="btc-dom">—</div>
         <div class="stat-change muted">of total market</div>
@@ -50,7 +49,7 @@
       <a class="card stat-card stat-link" href="https://etherscan.io/gastracker" target="_blank" rel="noopener" title="View ETH Gas Tracker on Etherscan">
         <div class="stat-label">ETH Gas</div>
         <div class="stat-value" id="eth-gas">—</div>
-        <div class="stat-change muted">gwei · click for details</div>
+        <div class="stat-change muted">gwei · 3 decimals</div>
       </a>
     </section>
 
@@ -119,7 +118,7 @@
       </div>
     </section>
 
-    <!-- SECTION 4: Stablecoin Yields + New Opportunities + News -->
+    <!-- SECTION 4: Stablecoin Yields + New Opportunities -->
     <section class="row">
       <div class="card span-1">
         <h2>💰 Best Stablecoin Yields</h2>
@@ -148,11 +147,27 @@
         <p class="muted small">Freshly discovered this refresh</p>
         <div id="new-yield-list" class="yield-list new-yield-list"></div>
       </div>
+    </section>
 
-      <div class="card span-1">
-        <h2>📰 Crypto News</h2>
-        <p class="muted small">Latest from around the web</p>
-        <div id="news-list" class="news-list"></div>
+    <!-- SECTION 4b: Crypto News (full width, filterable, infinite scroll) -->
+    <section class="row">
+      <div class="card span-3 news-card">
+        <div class="card-header">
+          <h2>📰 Crypto News</h2>
+        </div>
+        <div class="news-filter-tabs" id="news-filter-tabs">
+          <button class="news-filter-tab active" data-filter="all">All</button>
+          <button class="news-filter-tab" data-filter="Markets">Markets</button>
+          <button class="news-filter-tab" data-filter="Policy">Policy</button>
+          <button class="news-filter-tab" data-filter="Finance">Finance</button>
+          <button class="news-filter-tab" data-filter="DeFi">DeFi</button>
+          <button class="news-filter-tab" data-filter="Opinion">Opinion</button>
+          <button class="news-filter-tab" data-filter="Business">Business</button>
+        </div>
+        <div id="news-scroll" class="news-scroll">
+          <div id="news-list" class="news-list"></div>
+          <div id="news-sentinel" class="news-sentinel">Loading more…</div>
+        </div>
       </div>
     </section>
 
@@ -209,11 +224,12 @@
     </section>
 
     <footer class="footer">
+      <p id="last-updated" class="muted small">Loading…</p>
       <p>DailyDose · Data: <a href="https://www.coingecko.com" target="_blank" rel="noopener">CoinGecko</a>, <a href="https://defillama.com" target="_blank" rel="noopener">DeFiLlama</a>, <a href="https://etherscan.io/gastracker" target="_blank" rel="noopener">Etherscan</a>, <a href="https://alternative.me/crypto/fear-and-greed-index/" target="_blank" rel="noopener">Alternative.me</a></p>
       <p class="muted small">⚠ Not financial advice. Built with 💊 by Herbie for Jay.</p>
     </footer>
   </main>
 
-  <script src="app.js?v=17"></script>
+  <script src="app.js?v=18"></script>
 </body>
 </html>

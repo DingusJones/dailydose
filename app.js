@@ -117,7 +117,7 @@ async function loadCoinGeckoData() {
     el.textContent = fmtPct(mc);
     el.className = "stat-change " + changeClass(mc);
     document.getElementById("global-vol").textContent = fmtUsd(d.total_volume.usd);
-    document.getElementById("btc-dom").textContent = d.market_cap_percentage.btc.toFixed(1) + "%";
+    document.getElementById("btc-dom").textContent = d.market_cap_percentage.btc.toFixed(2) + "%";
   }
 
   // Trending — clickable links to CoinGecko + TradingView
@@ -169,12 +169,12 @@ async function loadGas() {
   try {
     const r = await cachedFetch("gas", "https://api.etherscan.io/v2/api?chainid=1&module=gastracker&action=gasoracle");
     if (r.status === "1" && r.result) {
-      document.getElementById("eth-gas").textContent = parseFloat(r.result.FastGasPrice).toFixed(2);
+      document.getElementById("eth-gas").textContent = parseFloat(r.result.FastGasPrice).toFixed(3);
     }
   } catch {
     try {
       const r2 = await cachedFetch("gas2", "https://api.ethplorer.io/getGasPrice?apiKey=free");
-      document.getElementById("eth-gas").textContent = (r2.gasPrice / 1e9).toFixed(2);
+      document.getElementById("eth-gas").textContent = (r2.gasPrice / 1e9).toFixed(3);
     } catch { document.getElementById("eth-gas").textContent = "—"; }
   }
 }
@@ -571,21 +571,135 @@ function setupYieldTabs() {
   });
 }
 
-// ─── 7. Crypto News (CryptoPanic + RSS fallback) ───
+// ─── 7. Crypto News (CoinDesk RSS via rss2json, filterable, infinite scroll) ───
+let allNewsItems = [];
+let newsFilter = "all";
+let newsDisplayCount = 10;
+const NEWS_PAGE_SIZE = 10;
+
 async function loadNews() {
   const list = document.getElementById("news-list");
+  const sentinel = document.getElementById("news-sentinel");
+  if (!list) return;
+
   try {
-    const r = await cachedFetch("news", "https://cryptopanic.com/api/free/v1/posts/?auth_token=free&public=true&kind=news");
-    list.innerHTML = r.results.slice(0, 10).map(item => {
-      const d = new Date(item.published_at);
-      return `<div class="news-item"><div class="news-title"><a href="${item.url}" target="_blank" rel="noopener">${item.title}</a></div><div class="news-meta">${item.source?.title || "Unknown"} · ${timeAgo(Math.floor(d.getTime() / 1000))}</div></div>`;
-    }).join("");
-  } catch {
-    try {
-      const r = await cachedFetch("news2", "https://api.rss2json.com/v1/api.json?rss_url=" + encodeURIComponent("https://www.coindesk.com/arc/outboundfeeds/rss/"));
-      list.innerHTML = r.items.slice(0, 10).map(item => `<div class="news-item"><div class="news-title"><a href="${item.link}" target="_blank" rel="noopener">${item.title}</a></div><div class="news-meta">CoinDesk · ${timeAgo(Math.floor(new Date(item.pubDate).getTime() / 1000))}</div></div>`).join("");
-    } catch { list.innerHTML = `<div class="news-item"><div class="news-title">News feed temporarily unavailable</div></div>`; }
+    const r = await cachedFetch("news", "https://api.rss2json.com/v1/api.json?rss_url=" + encodeURIComponent("https://www.coindesk.com/arc/outboundfeeds/rss/"));
+    allNewsItems = (r.items || []).map(item => {
+      const cats = (item.categories || []).map(c => c.trim());
+      const imgUrl = item.enclosure?.link || item.thumbnail || "";
+      return {
+        title: item.title || "",
+        link: item.link || "#",
+        desc: item.description || item.content || "",
+        pubDate: item.pubDate || "",
+        author: item.author || "",
+        categories: cats,
+        image: imgUrl,
+        source: "CoinDesk",
+      };
+    });
+
+    newsDisplayCount = NEWS_PAGE_SIZE;
+    renderNews();
+  } catch (e) {
+    console.error("news", e);
+    list.innerHTML = `<div class="news-item"><div class="news-item-body"><div class="news-title">News feed temporarily unavailable</div></div></div>`;
+    if (sentinel) sentinel.classList.add("hidden");
   }
+}
+
+function renderNews() {
+  const list = document.getElementById("news-list");
+  const sentinel = document.getElementById("news-sentinel");
+  if (!list) return;
+
+  let filtered = allNewsItems;
+  if (newsFilter !== "all") {
+    filtered = allNewsItems.filter(item =>
+      item.categories.some(c => c.toLowerCase() === newsFilter.toLowerCase())
+    );
+  }
+
+  const visible = filtered.slice(0, newsDisplayCount);
+
+  if (visible.length === 0) {
+    list.innerHTML = `<div class="news-item"><div class="news-item-body"><div class="news-title">No articles in this category</div></div></div>`;
+    if (sentinel) sentinel.classList.add("hidden");
+    return;
+  }
+
+  list.innerHTML = visible.map(item => {
+    const d = new Date(item.pubDate);
+    const ts = Math.floor(d.getTime() / 1000);
+    const cats = item.categories.filter(c => c.toLowerCase() !== "news").slice(0, 2);
+    const catBadges = cats.map(c => `<span class="news-cat-badge">${c}</span>`).join("");
+    const imgHtml = item.image
+      ? `<img src="${item.image}" alt="" class="news-item-img" loading="lazy" onerror="this.style.display='none'">`
+      : "";
+    const descHtml = item.desc
+      ? `<div class="news-desc">${item.desc.replace(/<[^>]*>/g, "").substring(0, 200)}</div>`
+      : "";
+    return `<div class="news-item">
+      ${imgHtml}
+      <div class="news-item-body">
+        <div class="news-title"><a href="${item.link}" target="_blank" rel="noopener">${item.title}</a></div>
+        ${descHtml}
+        <div class="news-meta">
+          <span class="news-source">${item.source}</span>
+          ${item.author ? `<span>· ${item.author}</span>` : ""}
+          <span>· ${timeAgo(ts)}</span>
+          ${catBadges}
+        </div>
+      </div>
+    </div>`;
+  }).join("");
+
+  // Show/hide sentinel based on whether there's more to load
+  if (sentinel) {
+    if (newsDisplayCount >= filtered.length) {
+      sentinel.classList.add("hidden");
+    } else {
+      sentinel.classList.remove("hidden");
+    }
+  }
+}
+
+// Infinite scroll — load more when sentinel is visible
+function setupNewsScroll() {
+  const sentinel = document.getElementById("news-sentinel");
+  const scrollContainer = document.getElementById("news-scroll");
+  if (!sentinel || !scrollContainer) return;
+
+  const observer = new IntersectionObserver((entries) => {
+    entries.forEach(entry => {
+      if (entry.isIntersecting) {
+        let filtered = allNewsItems;
+        if (newsFilter !== "all") {
+          filtered = allNewsItems.filter(item =>
+            item.categories.some(c => c.toLowerCase() === newsFilter.toLowerCase())
+          );
+        }
+        if (newsDisplayCount < filtered.length) {
+          newsDisplayCount += NEWS_PAGE_SIZE;
+          renderNews();
+        }
+      }
+    });
+  }, { root: scrollContainer, rootMargin: "100px", threshold: 0 });
+
+  observer.observe(sentinel);
+}
+
+function setupNewsFilterTabs() {
+  document.querySelectorAll(".news-filter-tab").forEach(tab => {
+    tab.addEventListener("click", () => {
+      document.querySelectorAll(".news-filter-tab").forEach(t => t.classList.remove("active"));
+      tab.classList.add("active");
+      newsFilter = tab.getAttribute("data-filter");
+      newsDisplayCount = NEWS_PAGE_SIZE;
+      renderNews();
+    });
+  });
 }
 
 // ─── 8. Fear & Greed (gasoline gauge) ───
@@ -715,6 +829,60 @@ function buildPriceTicker() {
 
   // Duplicate content for seamless loop
   container.innerHTML = `<div class="ticker-track">${items}${items}</div>`;
+
+  // Touch/drag support on mobile — pause animation, let user drag
+  const track = container.querySelector(".ticker-track");
+  let isDragging = false;
+  let startX = 0;
+  let dragOffset = 0;
+  let baseOffset = 0;
+
+  function getX(e) {
+    return e.touches ? e.touches[0].clientX : e.clientX;
+  }
+
+  function onStart(e) {
+    isDragging = true;
+    startX = getX(e);
+    const matrix = window.getComputedStyle(track).transform;
+    if (matrix && matrix !== "none") {
+      const match = matrix.match(/matrix.*\(([^)]+)\)/);
+      if (match) baseOffset = parseFloat(match[1].split(",")[4]) || 0;
+    }
+    track.style.animationPlayState = "paused";
+    e.preventDefault();
+  }
+
+  function onMove(e) {
+    if (!isDragging) return;
+    dragOffset = getX(e) - startX;
+    track.style.transform = `translateX(${baseOffset + dragOffset}px)`;
+    e.preventDefault();
+  }
+
+  function onEnd() {
+    if (!isDragging) return;
+    isDragging = false;
+    const trackWidth = track.scrollWidth / 2;
+    let newOffset = baseOffset + dragOffset;
+    // Wrap around for seamless loop
+    while (newOffset > 0) newOffset -= trackWidth;
+    while (newOffset < -trackWidth) newOffset += trackWidth;
+    track.style.transform = `translateX(${newOffset}px)`;
+    // Resume animation after a brief pause
+    setTimeout(() => {
+      track.style.transform = "";
+      track.style.animationPlayState = "";
+    }, 1500);
+  }
+
+  track.addEventListener("touchstart", onStart, { passive: false });
+  track.addEventListener("touchmove", onMove, { passive: false });
+  track.addEventListener("touchend", onEnd);
+  track.addEventListener("mousedown", onStart);
+  track.addEventListener("mousemove", onMove);
+  track.addEventListener("mouseup", onEnd);
+  track.addEventListener("mouseleave", onEnd);
 }
 
 // ─── Refresh logic ───
@@ -757,6 +925,8 @@ document.getElementById("chain-select")?.addEventListener("change", (e) => rende
 document.getElementById("refresh-btn").addEventListener("click", refreshAll);
 setInterval(refreshAll, 5 * 60 * 1000);
 setupYieldTabs();
+setupNewsFilterTabs();
+setupNewsScroll();
 
 // ─── Init ───
 refreshAll();
