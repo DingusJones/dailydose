@@ -276,10 +276,11 @@ function renderCoins(coins) {
     const pct24 = c.price_change_percentage_24h;
     const color = pct24 >= 0 ? "#16c784" : "#ea3943";
     const { primary, fallback } = coinToTvSymbolWithFallback(c);
-    return `<tr class="coin-row" data-tv="${primary}" data-tv-fallback="${fallback || ""}" data-name="${c.name}" style="cursor:pointer" title="Rank #${i + 1} — Click to chart ${c.name}">
+    const cgUrl = `https://www.coingecko.com/en/coins/${c.id}`;
+    return `<tr class="coin-row" data-tv="${primary}" data-tv-fallback="${fallback || ""}" data-name="${c.name}" title="Rank #${i + 1}">
       <td class="rank-cell">${i + 1}</td>
-      <td><div class="coin-cell"><img src="${c.image}" alt="" loading="lazy" onerror="this.style.display='none'"><span>${c.name}</span><span class="muted">${c.symbol.toUpperCase()}</span></div></td>
-      <td>${fmtUsd(c.current_price)}</td>
+      <td><div class="coin-cell"><img src="${c.image}" alt="" loading="lazy" onerror="this.style.display='none'"><a href="${cgUrl}" target="_blank" rel="noopener" class="coin-name-link" title="Research ${c.name} on CoinGecko">${c.name}</a><a href="${cgUrl}" target="_blank" rel="noopener" class="coin-sym-link muted" title="${c.name} on CoinGecko">${c.symbol.toUpperCase()}</a></div></td>
+      <td class="price-cell" style="cursor:pointer" title="Click to chart ${c.name}">${fmtUsd(c.current_price)}</td>
       <td class="${changeClass(pct24)}">${fmtPct(pct24)}</td>
       <td>${fmtUsd(c.market_cap)}</td>
       <td>${fmtUsd(c.total_volume)}</td>
@@ -288,10 +289,11 @@ function renderCoins(coins) {
   }).join("");
 
   tbody.querySelectorAll(".coin-row").forEach(row => {
-    row.addEventListener("click", () => {
-      const tv = row.getAttribute("data-tv");
-      const tvFallback = row.getAttribute("data-tv-fallback");
-      const name = row.getAttribute("data-name");
+    const tv = row.getAttribute("data-tv");
+    const name = row.getAttribute("data-name");
+    // Price cell click → load TradingView chart
+    row.querySelector(".price-cell")?.addEventListener("click", (e) => {
+      e.stopPropagation();
       tbody.querySelectorAll(".coin-row").forEach(r => r.classList.remove("selected-coin"));
       row.classList.add("selected-coin");
       loadTradingView(tv, name);
