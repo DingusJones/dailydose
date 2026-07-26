@@ -224,16 +224,18 @@ main {
   .coins-table { font-size: 12px; min-width: 0; margin: 0; width: 100%; table-layout: fixed; }
   .coins-table th { padding: 8px 4px; font-size: 9px; }
   .coins-table td { padding: 8px 4px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .coin-cell { display: inline-flex; align-items: center; gap: 4px; max-width: 100%; overflow: hidden; }
+  .coin-cell { display: inline-flex; align-items: center; gap: 4px; max-width: 100%; overflow: visible; }
   .coin-cell img { width: 16px; height: 16px; flex-shrink: 0; }
-  .coin-cell span { font-size: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 70px; }
-  .coin-cell .muted { font-size: 10px; max-width: 35px; }
+  .coin-cell span { font-size: 12px; white-space: nowrap; }
+  .coin-cell .muted { font-size: 10px; margin-left: 2px; }
   .sparkline { width: 50px; height: 20px; }
   /* Hide Rank, Market Cap, Volume, 7d columns on mobile */
   .coins-table th:nth-child(1), .coins-table td:nth-child(1),
   .coins-table th:nth-child(5), .coins-table td:nth-child(5),
   .coins-table th:nth-child(6), .coins-table td:nth-child(6),
   .coins-table th:nth-child(7), .coins-table td:nth-child(7) { display: none; }
+  /* Give the Coin column (2nd) more space — name + symbol always readable */
+  .coins-table th:nth-child(2), .coins-table td:nth-child(2) { width: 40%; }
 
   /* Trending — compact but still left-aligned inside centered column */
   .trending-list { max-width: 100%; padding: 0 4px; }
