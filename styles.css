@@ -179,8 +179,6 @@ a:hover { text-decoration: underline; }
 .collapsible.collapsed .card { padding-bottom: 14px; }
 /* Market grid doesn't use section-body — hide the grid items directly */
 .collapsible.collapsed.market-grid > * { display: none; }
-/* Ticker section doesn't use section-body — hide the card content */
-.collapsible.collapsed .ticker-card { display: none; }
 
 /* MAIN LAYOUT */
 main {
@@ -277,8 +275,6 @@ main {
 
 /* Ticker — global styles */
 .ticker-card { padding: 0 !important; }
-.ticker-header { display: flex; align-items: center; justify-content: flex-end; padding: 4px 10px 0; }
-.collapsible.collapsed .ticker-card .section-body { display: none; }
 
   /* Ticker card — full bleed on mobile without causing page overflow */
   @media (max-width: 600px) {

@@ -988,7 +988,8 @@ function buildPriceTicker() {
   // Duplicate content for seamless loop
   container.innerHTML = `<div class="ticker-track">${items}${items}</div>`;
 
-  // Touch/drag support — pause animation, let user drag, smooth resume
+  // Touch/drag support — bind to CONTAINER (not track) because ticker-items
+  // have pointer-events:none, so touch events target the container, not the track
   const track = container.querySelector(".ticker-track");
   let isDragging = false;
   let startX = 0;
@@ -1003,6 +1004,7 @@ function buildPriceTicker() {
   function onStart(e) {
     isDragging = true;
     startX = getX(e);
+    // Read current transform from the track
     const matrix = window.getComputedStyle(track).transform;
     baseOffset = 0;
     if (matrix && matrix !== "none") {
@@ -1011,11 +1013,13 @@ function buildPriceTicker() {
     }
     track.style.animationPlayState = "paused";
     if (resumeTimer) { clearTimeout(resumeTimer); resumeTimer = null; }
+    // Prevent the browser from scrolling the page while dragging
+    if (e.cancelable) e.preventDefault();
   }
 
   function onMove(e) {
     if (!isDragging) return;
-    e.preventDefault();
+    if (e.cancelable) e.preventDefault();
     dragOffset = getX(e) - startX;
     track.style.transform = `translateX(${baseOffset + dragOffset}px)`;
   }
@@ -1035,17 +1039,17 @@ function buildPriceTicker() {
     }, 2000);
   }
 
-  // Touch events — passive:false on touchmove so preventDefault works
-  track.addEventListener("touchstart", onStart, { passive: false });
-  track.addEventListener("touchmove", onMove, { passive: false });
-  track.addEventListener("touchend", onEnd);
-  track.addEventListener("touchcancel", onEnd);
-  // Mouse events (desktop)
-  track.addEventListener("mousedown", onStart);
-  track.addEventListener("mousemove", (e) => { if (isDragging) onMove(e); });
-  track.addEventListener("mouseup", onEnd);
-  track.addEventListener("mouseleave", onEnd);
-  track.addEventListener("dragstart", (e) => e.preventDefault());
+  // Touch events — bind to CONTAINER, passive:false so preventDefault works
+  container.addEventListener("touchstart", onStart, { passive: false });
+  container.addEventListener("touchmove", onMove, { passive: false });
+  container.addEventListener("touchend", onEnd);
+  container.addEventListener("touchcancel", onEnd);
+  // Mouse events (desktop) — also bind to container
+  container.addEventListener("mousedown", onStart);
+  container.addEventListener("mousemove", (e) => { if (isDragging) onMove(e); });
+  container.addEventListener("mouseup", onEnd);
+  container.addEventListener("mouseleave", onEnd);
+  container.addEventListener("dragstart", (e) => e.preventDefault());
 }
 
 // ─── Refresh logic ───
