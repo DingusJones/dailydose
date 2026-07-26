@@ -140,7 +140,7 @@ async function loadCoinGeckoData() {
   // Markets → coins table + big coin cards + EVM token prices
   if (marketsRes.status === "fulfilled" && Array.isArray(marketsRes.value)) {
     allCoins = marketsRes.value;
-    renderCoins("all");
+    renderCoins(allCoins);
 
     // Extract BTC/ETH for big cards (no separate API call needed)
     const btc = allCoins.find(c => c.id === "bitcoin");
@@ -252,12 +252,24 @@ async function loadEvmTxCosts(prices) {
 }
 
 // ─── 4. Top Coins table (rendered from cached allCoins) ───
-function renderCoins(chain) {
+// Chain → CoinGecko category mapping
+const CHAIN_CATEGORIES = {
+  all: null,
+  ethereum: "ethereum-ecosystem",
+  solana: "solana-ecosystem",
+  "binance-smart-chain": "binance-smart-chain",
+  "polygon-pos": "polygon-ecosystem",
+  "arbitrum-one": "arbitrum-ecosystem",
+  "optimistic-ethereum": "optimism-ecosystem",
+  base: "base-ecosystem",
+  avalanche: "avalanche-ecosystem",
+};
+
+function renderCoins(coins) {
   const tbody = document.getElementById("coins-tbody");
-  let coins = allCoins;
-  if (chain !== "all") {
-    coins = allCoins.filter(c => c.asset_platform_id === chain);
-    if (coins.length === 0) coins = allCoins;
+  if (!coins || coins.length === 0) {
+    tbody.innerHTML = `<tr><td colspan="5" style="color:var(--text-muted);padding:20px">No coins found for this chain</td></tr>`;
+    return;
   }
   coins = coins.slice(0, 25);
   tbody.innerHTML = coins.map((c, i) => {
@@ -282,12 +294,32 @@ function renderCoins(chain) {
       const name = row.getAttribute("data-name");
       tbody.querySelectorAll(".coin-row").forEach(r => r.classList.remove("selected-coin"));
       row.classList.add("selected-coin");
-      // Load chart with fallback — if primary fails, TradingView widget handles it
-      // We pass both; loadTradingView uses primary, and if user clicks again it won't re-fail
       loadTradingView(tv, name);
       document.getElementById("tradingview-chart").scrollIntoView({ behavior: "smooth", block: "center" });
     });
   });
+}
+
+async function loadChainCoins(chain) {
+  const tbody = document.getElementById("coins-tbody");
+  const category = CHAIN_CATEGORIES[chain];
+  if (!category) {
+    // "all" — use already-fetched allCoins
+    renderCoins(allCoins);
+    return;
+  }
+  // Show loading state
+  tbody.innerHTML = `<tr><td colspan="5" style="color:var(--text-muted);padding:20px">Loading ${chain} coins…</td></tr>`;
+  try {
+    const coins = await cachedFetch(
+      `coins_${chain}`,
+      `${CG}/coins/markets?vs_currency=usd&category=${category}&order=market_cap_desc&per_page=25&page=1&sparkline=true&price_change_percentage=24h,7d`
+    );
+    renderCoins(coins);
+  } catch (e) {
+    console.error("chain coins", e);
+    tbody.innerHTML = `<tr><td colspan="5" style="color:var(--text-muted);padding:20px">Failed to load ${chain} coins</td></tr>`;
+  }
 }
 
 // ─── 5. DeFi TVL by Chain (DeFiLlama) ───
@@ -904,7 +936,6 @@ function buildPriceTicker() {
   function onStart(e) {
     isDragging = true;
     startX = getX(e);
-    // Get current transform offset from computed style
     const matrix = window.getComputedStyle(track).transform;
     baseOffset = 0;
     if (matrix && matrix !== "none") {
@@ -917,6 +948,7 @@ function buildPriceTicker() {
 
   function onMove(e) {
     if (!isDragging) return;
+    e.preventDefault();
     dragOffset = getX(e) - startX;
     track.style.transform = `translateX(${baseOffset + dragOffset}px)`;
   }
@@ -926,11 +958,9 @@ function buildPriceTicker() {
     isDragging = false;
     const trackWidth = track.scrollWidth / 2;
     let newOffset = baseOffset + dragOffset;
-    // Wrap around for seamless loop
     while (newOffset > 0) newOffset -= trackWidth;
     while (newOffset < -trackWidth) newOffset += trackWidth;
     track.style.transform = `translateX(${newOffset}px)`;
-    // Resume animation after 2s pause
     resumeTimer = setTimeout(() => {
       track.style.transform = "";
       track.style.animationPlayState = "";
@@ -938,16 +968,16 @@ function buildPriceTicker() {
     }, 2000);
   }
 
-  // Touch events
-  track.addEventListener("touchstart", onStart, { passive: true });
-  track.addEventListener("touchmove", onMove, { passive: true });
+  // Touch events — passive:false on touchmove so preventDefault works
+  track.addEventListener("touchstart", onStart, { passive: false });
+  track.addEventListener("touchmove", onMove, { passive: false });
   track.addEventListener("touchend", onEnd);
+  track.addEventListener("touchcancel", onEnd);
   // Mouse events (desktop)
   track.addEventListener("mousedown", onStart);
   track.addEventListener("mousemove", (e) => { if (isDragging) onMove(e); });
   track.addEventListener("mouseup", onEnd);
   track.addEventListener("mouseleave", onEnd);
-  // Prevent drag from selecting text
   track.addEventListener("dragstart", (e) => e.preventDefault());
 }
 
@@ -987,7 +1017,7 @@ async function refreshAll() {
 }
 
 // ─── Event listeners ───
-document.getElementById("chain-select")?.addEventListener("change", (e) => renderCoins(e.target.value));
+document.getElementById("chain-select")?.addEventListener("change", (e) => loadChainCoins(e.target.value));
 document.getElementById("refresh-btn").addEventListener("click", refreshAll);
 setInterval(refreshAll, 5 * 60 * 1000);
 setupYieldTabs();
