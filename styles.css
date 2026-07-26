@@ -130,6 +130,38 @@ main {
 .span-2 { grid-column: span 2; }
 .span-3 { grid-column: span 3; }
 
+/* TICKER — global, works on desktop and mobile */
+#price-ticker { width: 100%; overflow: hidden; min-width: 0; touch-action: pan-x; }
+.ticker-track {
+  display: flex;
+  gap: 0;
+  white-space: nowrap;
+  animation: ticker-scroll 16s linear infinite;
+  will-change: transform;
+}
+.ticker-track:hover { animation-play-state: paused; }
+.ticker-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 14px;
+  font-size: 13px;
+  font-weight: 600;
+  border-right: 1px solid rgba(255,255,255,0.06);
+  white-space: nowrap;
+  flex-shrink: 0;
+  text-decoration: none;
+  color: inherit;
+}
+.ticker-item img { width: 18px; height: 18px; border-radius: 50%; }
+.ticker-item .tk-name { color: #ccc; }
+.ticker-item .tk-price { color: #fff; }
+.ticker-item .tk-change { font-size: 11px; font-weight: 700; }
+@keyframes ticker-scroll {
+  0% { transform: translateX(0); }
+  100% { transform: translateX(-50%); }
+}
+
 /* TABLET (≤900px) */
 @media (max-width: 900px) {
   main { padding: 16px 16px; }
@@ -184,38 +216,6 @@ main {
   .stat-value { font-size: 18px; }
   .stat-change { font-size: 11px; }
 
-  /* Ticker tape — custom auto-scroll, works on mobile */
-  #price-ticker { width: 100%; overflow: hidden; min-width: 0; touch-action: pan-x; }
-  .ticker-track {
-    display: flex;
-    gap: 0;
-    white-space: nowrap;
-    animation: ticker-scroll 32s linear infinite;
-    will-change: transform;
-  }
-  .ticker-track:hover { animation-play-state: paused; }
-  .ticker-item {
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-    padding: 10px 16px;
-    font-size: 13px;
-    font-weight: 600;
-    border-right: 1px solid rgba(255,255,255,0.06);
-    white-space: nowrap;
-    flex-shrink: 0;
-  }
-  .ticker-item img { width: 18px; height: 18px; border-radius: 50%; }
-  .ticker-item .tk-name { color: #ccc; }
-  .ticker-item .tk-price { color: #fff; }
-  .ticker-item .tk-change { font-size: 11px; font-weight: 700; }
-  @keyframes ticker-scroll {
-    0% { transform: translateX(0); }
-    100% { transform: translateX(-50%); }
-  }
-  #tradingview-ticker { width: 100%; overflow: hidden; min-width: 0; }
-  #tradingview-ticker iframe { max-width: 100% !important; }
-
   /* Coin table — horizontal scroll, readable, hide Volume/7d */
   .table-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; text-align: center; width: 100%; max-width: 100%; }
   .coins-table { font-size: 13px; min-width: 460px; margin: 0 auto; width: 100%; }
@@ -268,12 +268,14 @@ main {
   .big-coin-price { font-size: 20px; }
   .big-coin-stats { gap: 8px; font-size: 11px; }
 
-  /* News */
-  .news-item { padding: 14px 0; gap: 10px; }
+  /* News — centered, no horizontal scroll, badges below */
+  .news-item { padding: 14px 0; gap: 10px; max-width: 100%; overflow: hidden; }
   .news-item-img { width: 64px; height: 64px; border-radius: 6px; }
-  .news-title { font-size: 14px; }
+  .news-item-body { flex: 1; min-width: 0; overflow: hidden; }
+  .news-title { font-size: 14px; word-wrap: break-word; overflow-wrap: break-word; }
   .news-desc { font-size: 12px; -webkit-line-clamp: 2; }
-  .news-meta { font-size: 10px; gap: 6px; }
+  .news-meta { font-size: 10px; gap: 4px 6px; flex-wrap: wrap; margin-top: 8px; }
+  .news-cat-badge { font-size: 8px; padding: 1px 5px; }
   .news-filter-tab { padding: 5px 10px; font-size: 11px; }
   .news-scroll { max-height: 600px; }
 
@@ -586,6 +588,8 @@ main {
   padding: 16px 0;
   border-bottom: 1px solid var(--border);
   align-items: flex-start;
+  max-width: 100%;
+  overflow: hidden;
 }
 .news-item:last-child { border-bottom: 0; }
 .news-item-img {
@@ -596,12 +600,14 @@ main {
   flex-shrink: 0;
   background: var(--bg-3);
 }
-.news-item-body { flex: 1; min-width: 0; }
+.news-item-body { flex: 1; min-width: 0; overflow: hidden; }
 .news-title {
   font-size: 15px;
   font-weight: 700;
   line-height: 1.35;
   letter-spacing: -0.2px;
+  word-wrap: break-word;
+  overflow-wrap: break-word;
 }
 .news-title a { color: var(--text); text-decoration: none; }
 .news-title a:hover { color: var(--accent); }
@@ -618,8 +624,9 @@ main {
 .news-meta {
   display: flex;
   align-items: center;
-  gap: 8px;
-  margin-top: 8px;
+  flex-wrap: wrap;
+  gap: 6px 8px;
+  margin-top: 10px;
   font-size: 11px;
   color: var(--text-muted);
 }
@@ -635,6 +642,7 @@ main {
   padding: 2px 6px;
   border-radius: 4px;
   letter-spacing: 0.3px;
+  white-space: nowrap;
 }
 .news-sentinel {
   text-align: center;

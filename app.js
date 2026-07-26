@@ -889,12 +889,13 @@ function buildPriceTicker() {
   // Duplicate content for seamless loop
   container.innerHTML = `<div class="ticker-track">${items}${items}</div>`;
 
-  // Touch/drag support on mobile — pause animation, let user drag
+  // Touch/drag support — pause animation, let user drag, smooth resume
   const track = container.querySelector(".ticker-track");
   let isDragging = false;
   let startX = 0;
   let dragOffset = 0;
   let baseOffset = 0;
+  let resumeTimer = null;
 
   function getX(e) {
     return e.touches ? e.touches[0].clientX : e.clientX;
@@ -903,20 +904,21 @@ function buildPriceTicker() {
   function onStart(e) {
     isDragging = true;
     startX = getX(e);
+    // Get current transform offset from computed style
     const matrix = window.getComputedStyle(track).transform;
+    baseOffset = 0;
     if (matrix && matrix !== "none") {
       const match = matrix.match(/matrix.*\(([^)]+)\)/);
       if (match) baseOffset = parseFloat(match[1].split(",")[4]) || 0;
     }
     track.style.animationPlayState = "paused";
-    e.preventDefault();
+    if (resumeTimer) { clearTimeout(resumeTimer); resumeTimer = null; }
   }
 
   function onMove(e) {
     if (!isDragging) return;
     dragOffset = getX(e) - startX;
     track.style.transform = `translateX(${baseOffset + dragOffset}px)`;
-    e.preventDefault();
   }
 
   function onEnd() {
@@ -928,20 +930,25 @@ function buildPriceTicker() {
     while (newOffset > 0) newOffset -= trackWidth;
     while (newOffset < -trackWidth) newOffset += trackWidth;
     track.style.transform = `translateX(${newOffset}px)`;
-    // Resume animation after a brief pause
-    setTimeout(() => {
+    // Resume animation after 2s pause
+    resumeTimer = setTimeout(() => {
       track.style.transform = "";
       track.style.animationPlayState = "";
-    }, 1500);
+      resumeTimer = null;
+    }, 2000);
   }
 
-  track.addEventListener("touchstart", onStart, { passive: false });
-  track.addEventListener("touchmove", onMove, { passive: false });
+  // Touch events
+  track.addEventListener("touchstart", onStart, { passive: true });
+  track.addEventListener("touchmove", onMove, { passive: true });
   track.addEventListener("touchend", onEnd);
+  // Mouse events (desktop)
   track.addEventListener("mousedown", onStart);
-  track.addEventListener("mousemove", onMove);
+  track.addEventListener("mousemove", (e) => { if (isDragging) onMove(e); });
   track.addEventListener("mouseup", onEnd);
   track.addEventListener("mouseleave", onEnd);
+  // Prevent drag from selecting text
+  track.addEventListener("dragstart", (e) => e.preventDefault());
 }
 
 // ─── Refresh logic ───
