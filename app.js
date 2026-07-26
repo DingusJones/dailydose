@@ -571,11 +571,48 @@ function setupYieldTabs() {
   });
 }
 
-// ─── 7. Crypto News (CoinDesk RSS via rss2json, filterable, infinite scroll) ───
+// ─── 7. Crypto News (multi-source RSS, filterable, infinite scroll) ───
+const NEWS_FEEDS = [
+  { url: "https://www.coindesk.com/arc/outboundfeeds/rss/", source: "CoinDesk" },
+  { url: "https://cointelegraph.com/rss", source: "Cointelegraph" },
+  { url: "https://decrypt.co/feed", source: "Decrypt" },
+  { url: "https://www.theblock.co/rss.xml", source: "The Block" },
+  { url: "https://news.bitcoin.com/feed/", source: "Bitcoin.com" },
+  { url: "https://www.newsbtc.com/feed/", source: "NewsBTC" },
+  { url: "https://cryptopotato.com/feed/", source: "CryptoPotato" },
+  { url: "https://coinjournal.net/feed/", source: "CoinJournal" },
+];
+
+// Category keyword mapping — match article title + categories against unified taxonomy
+// Use \b word boundaries for short keywords to avoid false positives (e.g. "ai" in "prediction")
+const NEWS_CATEGORIES = [
+  { key: "Markets", keywords: ["market", "price", "surge", "rally", "dump", "pump", "trading", "altcoin", "crash", "drop", "volume", /\bcoin\b/, /\btoken\b/, /\bgain\b/, /\bloss\b/] },
+  { key: "Policy", keywords: ["policy", "regulation", /\bsec\b/, "cftc", "congress", "senate", /\blaw\b/, "legal", "court", "lawsuit", /\bban\b/, "sanction", "government", "trump", "white house", "democrat", "republican", "clarity act", "mica", "russia", "china", "korea", "regulator"] },
+  { key: "DeFi", keywords: ["defi", "liquidity", "vault", /\byield\b/, "lending", "borrow", "staking", "uniswap", /\baave\b/, "morpho", "compound", /\bcurve\b/, /\bmaker\b/, "total value locked", /\btvl\b/, /\bdex\b/, "hyperliquid", /\bperp\b/] },
+  { key: "Business", keywords: ["funding", /\braise\b/, "investment", "acquisition", "merger", "partnership", /\blaunch\b/, "startup", "exchange", "bitmart", "robinhood", "sberbank", "company", /\bfirm\b/, "corporate", /\bdeal\b/] },
+  { key: "Opinion", keywords: ["opinion", "commentary", "editorial", "guest post", /\breview\b/, "perspective"] },
+  { key: "Tech", keywords: ["technology", "upgrade", /\bfork\b/, "layer 2", /\bl2\b/, "scaling", "rollup", "zero-knowledge", /\bzk\b/, "protocol", "blockchain", /\bnode\b/, "validator", "miner", "mining", /\bhash\b/, "infrastructure"] },
+  { key: "AI", keywords: [/\bai\b/, "artificial intelligence", "machine learning", "openai", "chatgpt", "deepfake", /\bllm\b/, "sam altman", "world network"] },
+];
+
+function classifyArticle(title, categories) {
+  const text = (title + " " + categories.join(" ")).toLowerCase();
+  const matched = [];
+  for (const cat of NEWS_CATEGORIES) {
+    if (cat.keywords.some(kw => {
+      if (kw instanceof RegExp) return kw.test(text);
+      return text.includes(kw);
+    })) {
+      matched.push(cat.key);
+    }
+  }
+  return matched.length > 0 ? matched : ["Markets"]; // default to Markets if no match
+}
+
 let allNewsItems = [];
 let newsFilter = "all";
-let newsDisplayCount = 10;
-const NEWS_PAGE_SIZE = 10;
+let newsDisplayCount = 15;
+const NEWS_PAGE_SIZE = 15;
 
 async function loadNews() {
   const list = document.getElementById("news-list");
@@ -583,21 +620,46 @@ async function loadNews() {
   if (!list) return;
 
   try {
-    const r = await cachedFetch("news", "https://api.rss2json.com/v1/api.json?rss_url=" + encodeURIComponent("https://www.coindesk.com/arc/outboundfeeds/rss/"));
-    allNewsItems = (r.items || []).map(item => {
-      const cats = (item.categories || []).map(c => c.trim());
-      const imgUrl = item.enclosure?.link || item.thumbnail || "";
-      return {
-        title: item.title || "",
-        link: item.link || "#",
-        desc: item.description || item.content || "",
-        pubDate: item.pubDate || "",
-        author: item.author || "",
-        categories: cats,
-        image: imgUrl,
-        source: "CoinDesk",
-      };
-    });
+    // Fetch all feeds in parallel — single Promise.allSettled
+    const results = await Promise.allSettled(
+      NEWS_FEEDS.map(feed =>
+        cachedFetch(`news_${feed.source}`, "https://api.rss2json.com/v1/api.json?rss_url=" + encodeURIComponent(feed.url))
+      )
+    );
+
+    // Merge all items into unified pool
+    const seen = new Set();
+    allNewsItems = [];
+
+    for (let i = 0; i < results.length; i++) {
+      if (results[i].status !== "fulfilled" || !results[i].value?.items) continue;
+      const source = NEWS_FEEDS[i].source;
+      for (const item of results[i].value.items) {
+        // Deduplicate by title (different sources may cover same story)
+        const titleKey = (item.title || "").toLowerCase().replace(/[^a-z0-9]/g, "").substring(0, 60);
+        if (seen.has(titleKey)) continue;
+        seen.add(titleKey);
+
+        const rawCats = (item.categories || []).map(c => c.trim());
+        const articleCats = classifyArticle(item.title || "", rawCats);
+        const imgUrl = item.enclosure?.link || item.thumbnail || "";
+
+        allNewsItems.push({
+          title: item.title || "",
+          link: item.link || "#",
+          desc: (item.description || item.content || "").replace(/<[^>]*>/g, "").substring(0, 200),
+          pubDate: item.pubDate || "",
+          author: item.author || "",
+          categories: articleCats,
+          image: imgUrl,
+          source: source,
+          timestamp: new Date(item.pubDate || 0).getTime(),
+        });
+      }
+    }
+
+    // Sort by date descending (newest first)
+    allNewsItems.sort((a, b) => b.timestamp - a.timestamp);
 
     newsDisplayCount = NEWS_PAGE_SIZE;
     renderNews();
@@ -616,7 +678,7 @@ function renderNews() {
   let filtered = allNewsItems;
   if (newsFilter !== "all") {
     filtered = allNewsItems.filter(item =>
-      item.categories.some(c => c.toLowerCase() === newsFilter.toLowerCase())
+      item.categories.includes(newsFilter)
     );
   }
 
@@ -629,15 +691,14 @@ function renderNews() {
   }
 
   list.innerHTML = visible.map(item => {
-    const d = new Date(item.pubDate);
+    const d = new Date(item.timestamp);
     const ts = Math.floor(d.getTime() / 1000);
-    const cats = item.categories.filter(c => c.toLowerCase() !== "news").slice(0, 2);
-    const catBadges = cats.map(c => `<span class="news-cat-badge">${c}</span>`).join("");
+    const catBadges = item.categories.slice(0, 2).map(c => `<span class="news-cat-badge">${c}</span>`).join("");
     const imgHtml = item.image
       ? `<img src="${item.image}" alt="" class="news-item-img" loading="lazy" onerror="this.style.display='none'">`
       : "";
     const descHtml = item.desc
-      ? `<div class="news-desc">${item.desc.replace(/<[^>]*>/g, "").substring(0, 200)}</div>`
+      ? `<div class="news-desc">${item.desc.substring(0, 180)}</div>`
       : "";
     return `<div class="news-item">
       ${imgHtml}
@@ -675,9 +736,7 @@ function setupNewsScroll() {
       if (entry.isIntersecting) {
         let filtered = allNewsItems;
         if (newsFilter !== "all") {
-          filtered = allNewsItems.filter(item =>
-            item.categories.some(c => c.toLowerCase() === newsFilter.toLowerCase())
-          );
+          filtered = allNewsItems.filter(item => item.categories.includes(newsFilter));
         }
         if (newsDisplayCount < filtered.length) {
           newsDisplayCount += NEWS_PAGE_SIZE;
