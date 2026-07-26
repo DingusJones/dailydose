@@ -33,11 +33,13 @@ const cache = {
   },
 };
 
-async function cachedFetch(key, url, opts) {
-  const cached = cache.get(key);
-  if (cached) return cached;
+async function cachedFetch(key, url, force) {
+  if (!force) {
+    const cached = cache.get(key);
+    if (cached) return cached;
+  }
   try {
-    const r = await fetch(url, opts);
+    const r = await fetch(url);
     if (!r.ok) {
       const stale = cache.getStale(key);
       if (stale) return stale;
@@ -236,17 +238,21 @@ async function loadEvmTxCosts(prices) {
   tbody.innerHTML = results.map((res, i) => {
     const chain = EVM_CHAINS[i];
     if (res.status !== "fulfilled") {
-      return `<tr><td style="text-align:left;font-weight:600">${chain.name}</td><td colspan="5" class="muted">Unable to fetch</td><td><a href="${chain.explorer}" target="_blank" rel="noopener" style="font-size:11px">Explorer ↗</a></td></tr>`;
+      return `<tr>
+        <td data-label="Chain">${chain.name}</td>
+        <td data-label="Gas Price" colspan="5" class="muted">Unable to fetch</td>
+        <td data-label="Explorer"><a href="${chain.explorer}" target="_blank" rel="noopener" style="font-size:11px">Explorer ↗</a></td>
+      </tr>`;
     }
     const { gasGwei, fmtCost, cost } = res.value;
     return `<tr>
-      <td style="text-align:left;font-weight:600">${chain.name}</td>
-      <td>${gasGwei.toFixed(4)} gwei</td>
-      <td>${fmtCost(cost(TX_GAS.send))}</td>
-      <td>${fmtCost(cost(TX_GAS.erc20))}</td>
-      <td>${fmtCost(cost(TX_GAS.swap))}</td>
-      <td>${fmtCost(cost(TX_GAS.stake))}</td>
-      <td><a href="${chain.explorer}" target="_blank" rel="noopener" style="font-size:11px">Explorer ↗</a></td>
+      <td data-label="Chain">${chain.name}</td>
+      <td data-label="Gas Price">${gasGwei.toFixed(4)} gwei</td>
+      <td data-label="Send ETH">${fmtCost(cost(TX_GAS.send))}</td>
+      <td data-label="ERC-20 Transfer">${fmtCost(cost(TX_GAS.erc20))}</td>
+      <td data-label="DEX Swap">${fmtCost(cost(TX_GAS.swap))}</td>
+      <td data-label="LP Stake">${fmtCost(cost(TX_GAS.stake))}</td>
+      <td data-label="Link"><a href="${chain.explorer}" target="_blank" rel="noopener" style="font-size:11px">Explorer ↗</a></td>
     </tr>`;
   }).join("");
 }
@@ -277,10 +283,11 @@ function renderCoins(coins) {
     const color = pct24 >= 0 ? "#16c784" : "#ea3943";
     const { primary, fallback } = coinToTvSymbolWithFallback(c);
     const cgUrl = `https://www.coingecko.com/en/coins/${c.id}`;
+    const dexScreenerUrl = `https://dexscreener.com/search?q=${c.symbol}`;
     return `<tr class="coin-row" data-tv="${primary}" data-tv-fallback="${fallback || ""}" data-name="${c.name}" title="Rank #${i + 1}">
       <td class="rank-cell">${i + 1}</td>
       <td><div class="coin-cell"><img src="${c.image}" alt="" loading="lazy" onerror="this.style.display='none'"><a href="${cgUrl}" target="_blank" rel="noopener" class="coin-name-link" title="Research ${c.name} on CoinGecko">${c.name}</a><a href="${cgUrl}" target="_blank" rel="noopener" class="coin-sym-link muted" title="${c.name} on CoinGecko">${c.symbol.toUpperCase()}</a></div></td>
-      <td class="price-cell" style="cursor:pointer" title="Click to chart ${c.name}">${fmtUsd(c.current_price)}</td>
+      <td class="price-cell" style="cursor:pointer" data-ds="${dexScreenerUrl}" title="Click for ${c.name} charts & volume on DexScreener">${fmtUsd(c.current_price)}</td>
       <td class="${changeClass(pct24)}">${fmtPct(pct24)}</td>
       <td>${fmtUsd(c.market_cap)}</td>
       <td>${fmtUsd(c.total_volume)}</td>
@@ -291,14 +298,15 @@ function renderCoins(coins) {
   tbody.querySelectorAll(".coin-row").forEach(row => {
     const tv = row.getAttribute("data-tv");
     const name = row.getAttribute("data-name");
-    // Price cell click → load TradingView chart
-    row.querySelector(".price-cell")?.addEventListener("click", (e) => {
-      e.stopPropagation();
-      tbody.querySelectorAll(".coin-row").forEach(r => r.classList.remove("selected-coin"));
-      row.classList.add("selected-coin");
-      loadTradingView(tv, name);
-      document.getElementById("tradingview-chart").scrollIntoView({ behavior: "smooth", block: "center" });
-    });
+    // Price cell click → open DexScreener for volume/charts (different from TradingView above)
+    const priceCell = row.querySelector(".price-cell");
+    if (priceCell) {
+      priceCell.addEventListener("click", (e) => {
+        e.stopPropagation();
+        const dsUrl = priceCell.getAttribute("data-ds");
+        if (dsUrl) window.open(dsUrl, "_blank", "noopener");
+      });
+    }
   });
 }
 
@@ -522,7 +530,6 @@ let yieldChainFilter = "all";
 
 async function loadYields(filterPlatform, filterChain) {
   const listEl = document.getElementById("yield-list");
-  const newEl = document.getElementById("new-yield-list");
   if (!listEl) return;
 
   const prevKey = "dd_prev_yields";
@@ -568,34 +575,6 @@ async function loadYields(filterPlatform, filterChain) {
         </div>
       </a>`;
     }).join("");
-
-    // NEW: pools that are new or APY jumped >1% since last refresh
-    const jumped = all.filter(p => {
-      const poolKey = `${p.project}-${p.chain}-${p.symbol}`;
-      const prevApy = prevYields[poolKey];
-      return p.apy > 4 && (!prevApy || (p.apy - prevApy) > 1);
-    }).slice(0, 6);
-
-    if (newEl) {
-      if (jumped.length === 0) {
-        newEl.innerHTML = `<div class="yield-item" style="border-left-color:var(--text-muted);opacity:0.6"><div>No new high yields this refresh</div></div>`;
-      } else {
-        newEl.innerHTML = jumped.map(p => {
-          const apyStr = p.apy.toFixed(2);
-          const proj = yieldProjectLabel(p.project);
-          return `<a href="${p.link}" target="_blank" rel="noopener" class="yield-item-link" title="Open ${p.name} on ${p.chainDisplay}">
-            <div class="yield-item new">
-              <div class="yield-main">
-                <span class="yield-name">${p.name} <span class="yield-chain-badge">${p.chainDisplay}</span></span>
-                <span class="yield-project">${proj} · <span class="yield-source">${p.source}</span></span>
-              </div>
-              <span class="yield-apy">${apyStr}%</span>
-              <span class="yield-link-icon">↗</span>
-            </div>
-          </a>`;
-        }).join("");
-      }
-    }
 
     // Save current yields as prev for next refresh
     const newPrev = {};
@@ -1012,21 +991,21 @@ let refreshing = false;
 async function refreshAll() {
   if (refreshing) return;
   refreshing = true;
-  const btn = document.getElementById("refresh-btn");
-  btn.disabled = true;
-  btn.textContent = "↻ Loading…";
+
   document.getElementById("last-updated").textContent = "Updating…";
 
   try {
     // Phase 1: CoinGecko data (3 calls) + independent APIs (4 calls) in parallel
     const [cgPrices, , , , ,] = await Promise.all([
-      loadCoinGeckoData(),  // returns { ethPrice, maticPrice, bnbPrice }
+      loadCoinGeckoData(),
       loadGas(),
       loadTvl(),
       loadYields(yieldPlatformFilter, yieldChainFilter),
-      loadNews(),
+      loadAllNews(),
       loadFear(),
     ]);
+
+    if (cgPrices) lastCgPrices = cgPrices;
 
     // Phase 2: EVM tx costs (uses token prices from Phase 1, 6 parallel RPC calls)
     if (cgPrices) await loadEvmTxCosts(cgPrices);
@@ -1037,14 +1016,115 @@ async function refreshAll() {
     document.getElementById("last-updated").textContent = "Update failed — try again";
   }
 
-  btn.disabled = false;
-  btn.textContent = "↻ Refresh";
   refreshing = false;
 }
 
-// ─── Event listeners ───
+let lastCgPrices = { ethPrice: 0, maticPrice: 0, bnbPrice: 0 };
+
+// ─── Per-section refresh handlers ───
+const refreshHandlers = {
+  async market(btn) {
+    btn.classList.add("spinning");
+    await loadCoinGeckoData().then(p => { if (p) lastCgPrices = p; });
+    btn.classList.remove("spinning");
+  },
+  async chart(btn) {
+    btn.classList.add("spinning");
+    loadTradingView();
+    btn.classList.remove("spinning");
+  },
+  async coins(btn) {
+    btn.classList.add("spinning");
+    const sel = document.getElementById("chain-select");
+    await loadChainCoins(sel?.value || "all");
+    btn.classList.remove("spinning");
+  },
+  async trending(btn) {
+    btn.classList.add("spinning");
+    // Re-fetch trending only via CoinGecko search/trending
+    try {
+      const r = await cachedFetch("trending", CG + "/search/trending", true);
+      if (r?.coins) {
+        const list = document.getElementById("trending-list");
+        list.innerHTML = r.coins.slice(0, 7).map((c, i) => {
+          const item = c.item;
+          const pct = item.data?.price_change_percentage_24h?.usd;
+          const cgUrl = `https://www.coingecko.com/en/coins/${item.id}`;
+          const tvUrl = `https://www.tradingview.com/chart/?symbol=COINBASE:${item.symbol.toUpperCase()}USD`;
+          return `<li>
+            <span class="rank">${i + 1}</span>
+            <span class="name"><a href="${cgUrl}" target="_blank" rel="noopener" title="${item.name} on CoinGecko">${item.name}</a></span>
+            <span class="symbol"><a href="${tvUrl}" target="_blank" rel="noopener" title="${item.name} chart on TradingView">${item.symbol}</a></span>
+            <span class="price-change ${changeClass(pct)}">${fmtPct(pct)}</span>
+          </li>`;
+        }).join("");
+      }
+    } catch (e) { console.error("trending refresh", e); }
+    btn.classList.remove("spinning");
+  },
+  async tvl(btn) {
+    btn.classList.add("spinning");
+    await loadTvl();
+    btn.classList.remove("spinning");
+  },
+  async yields(btn) {
+    btn.classList.add("spinning");
+    await loadYields(yieldPlatformFilter, yieldChainFilter);
+    btn.classList.remove("spinning");
+  },
+  async news(btn) {
+    btn.classList.add("spinning");
+    await loadAllNews();
+    newsDisplayCount = NEWS_PAGE_SIZE;
+    renderNews();
+    btn.classList.remove("spinning");
+  },
+  async evm(btn) {
+    btn.classList.add("spinning");
+    await loadEvmTxCosts(lastCgPrices);
+    btn.classList.remove("spinning");
+  },
+  async fear(btn) {
+    btn.classList.add("spinning");
+    await loadFear();
+    btn.classList.remove("spinning");
+  },
+  async btc(btn) {
+    btn.classList.add("spinning");
+    try {
+      const r = await cachedFetch("markets_btc", CG + "/coins/markets?vs_currency=usd&ids=bitcoin&sparkline=true&price_change_percentage=24h,7d", true);
+      const btc = r?.[0];
+      if (btc) {
+        const pct = btc.price_change_percentage_24h;
+        const color = pct >= 0 ? "#16c784" : "#ea3943";
+        document.getElementById("btc-info").innerHTML = `<div class="big-coin-name">${btc.name}</div><div class="big-coin-price">${fmtUsd(btc.current_price)}</div><div class="${changeClass(pct)}" style="font-size:14px;font-weight:600">${fmtPct(pct)} (24h)</div><div class="big-coin-stats"><div><div class="big-coin-stat-label">Market Cap</div><div class="big-coin-stat-value">${fmtUsd(btc.market_cap)}</div></div><div><div class="big-coin-stat-label">24h Volume</div><div class="big-coin-stat-value">${fmtUsd(btc.total_volume)}</div></div><div><div class="big-coin-stat-label">7d Change</div><div class="big-coin-stat-value ${changeClass(btc.price_change_percentage_7d_in_currency)}">${fmtPct(btc.price_change_percentage_7d_in_currency)}</div></div><div><div class="big-coin-stat-label">ATH</div><div class="big-coin-stat-value">${fmtUsd(btc.ath)}</div></div></div><div style="margin-top:10px">${sparklineSvg(btc.sparkline_in_7d?.price, color)}</div>`;
+      }
+    } catch (e) { console.error("btc refresh", e); }
+    btn.classList.remove("spinning");
+  },
+  async eth(btn) {
+    btn.classList.add("spinning");
+    try {
+      const r = await cachedFetch("markets_eth", CG + "/coins/markets?vs_currency=usd&ids=ethereum&sparkline=true&price_change_percentage=24h,7d", true);
+      const eth = r?.[0];
+      if (eth) {
+        const pct = eth.price_change_percentage_24h;
+        const color = pct >= 0 ? "#16c784" : "#ea3943";
+        document.getElementById("eth-info").innerHTML = `<div class="big-coin-name">${eth.name}</div><div class="big-coin-price">${fmtUsd(eth.current_price)}</div><div class="${changeClass(pct)}" style="font-size:14px;font-weight:600">${fmtPct(pct)} (24h)</div><div class="big-coin-stats"><div><div class="big-coin-stat-label">Market Cap</div><div class="big-coin-stat-value">${fmtUsd(eth.market_cap)}</div></div><div><div class="big-coin-stat-label">24h Volume</div><div class="big-coin-stat-value">${fmtUsd(eth.total_volume)}</div></div><div><div class="big-coin-stat-label">7d Change</div><div class="big-coin-stat-value ${changeClass(eth.price_change_percentage_7d_in_currency)}">${fmtPct(eth.price_change_percentage_7d_in_currency)}</div></div><div><div class="big-coin-stat-label">ATH</div><div class="big-coin-stat-value">${fmtUsd(eth.ath)}</div></div></div><div style="margin-top:10px">${sparklineSvg(eth.sparkline_in_7d?.price, color)}</div>`;
+      }
+    } catch (e) { console.error("eth refresh", e); }
+    btn.classList.remove("spinning");
+  },
+};
+
+document.querySelectorAll(".section-refresh").forEach(btn => {
+  btn.addEventListener("click", () => {
+    const section = btn.getAttribute("data-refresh");
+    const handler = refreshHandlers[section];
+    if (handler) handler(btn);
+  });
+});
 document.getElementById("chain-select")?.addEventListener("change", (e) => loadChainCoins(e.target.value));
-document.getElementById("refresh-btn").addEventListener("click", refreshAll);
 setInterval(refreshAll, 5 * 60 * 1000);
 setupYieldTabs();
 setupNewsFilterTabs();

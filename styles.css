@@ -112,6 +112,29 @@ a:hover { text-decoration: underline; }
 .btn:hover { background: var(--accent); border-color: var(--accent); color: #fff; }
 .btn:disabled { opacity: 0.5; cursor: wait; }
 
+/* Per-section refresh buttons */
+.section-refresh {
+  background: transparent;
+  border: 1px solid var(--border);
+  color: var(--text-muted);
+  width: 28px;
+  height: 28px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 15px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.15s;
+  flex-shrink: 0;
+}
+.section-refresh:hover { background: var(--accent); border-color: var(--accent); color: #fff; }
+.section-refresh:active { transform: rotate(180deg); transition: transform 0.3s; }
+.section-refresh.spinning { animation: spin 0.8s linear infinite; pointer-events: none; opacity: 0.6; }
+@keyframes spin { to { transform: rotate(360deg); } }
+.section-actions { display: flex; align-items: center; gap: 8px; }
+.market-refresh-bar { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
+
 /* MAIN LAYOUT */
 main {
   max-width: 1400px;
@@ -293,9 +316,43 @@ main {
   .news-filter-tab { padding: 5px 10px; font-size: 11px; }
   .news-scroll { max-height: 600px; }
 
-  /* EVM tx table — horizontal scroll */
-  #evm-tx-table { min-width: 600px; font-size: 12px; }
-  #evm-tx-table th, #evm-tx-table td { padding: 8px; }
+  /* EVM tx table — stacked card layout on mobile, no horizontal scroll */
+  #evm-tx-table { min-width: 0; font-size: 11px; table-layout: fixed; width: 100%; }
+  #evm-tx-table thead { display: none; }
+  #evm-tx-table, #evm-tx-table tbody, #evm-tx-table tr, #evm-tx-table td { display: block; width: 100%; }
+  #evm-tx-table tr {
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    margin-bottom: 8px;
+    padding: 10px;
+    background: var(--bg-3);
+  }
+  #evm-tx-table td {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 4px 0;
+    border-bottom: 1px solid rgba(255,255,255,0.04);
+    text-align: left;
+  }
+  #evm-tx-table td:last-child { border-bottom: none; }
+  #evm-tx-table td::before {
+    content: attr(data-label);
+    color: var(--text-muted);
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+    font-weight: 600;
+  }
+  #evm-tx-table td:first-child {
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--text);
+    border-bottom: 1px solid var(--border);
+    padding-bottom: 6px;
+    margin-bottom: 2px;
+  }
+  #evm-tx-table td:first-child::before { display: none; }
 
   /* Footer */
   .footer { padding: 16px 0; }
