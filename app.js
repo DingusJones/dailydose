@@ -689,28 +689,32 @@ function loadTradingView(symbol, name) {
   if (extLink) extLink.href = "https://www.tradingview.com/chart/?symbol=" + currentChartSymbol;
 
   if (symbol === undefined) {
-    const ticker = document.getElementById("tradingview-ticker");
-    if (ticker) {
-      const script = document.createElement("script");
-      script.src = "https://s3.tradingview.com/external-embedding/embed-widget-ticker-tape.js";
-      script.async = true;
-      script.innerHTML = JSON.stringify({
-        symbols: [
-          { proName: "COINBASE:BTCUSD", title: "Bitcoin" },
-          { proName: "COINBASE:ETHUSD", title: "Ethereum" },
-          { proName: "COINBASE:SOLUSD", title: "Solana" },
-          { proName: "COINBASE:BNBUSD", title: "BNB" },
-          { proName: "COINBASE:XRPUSD", title: "XRP" },
-          { proName: "COINBASE:DOGEUSD", title: "Dogecoin" },
-          { proName: "COINBASE:ADAUSD", title: "Cardano" },
-          { proName: "COINBASE:AVAXUSD", title: "Avalanche" },
-        ],
-        showSymbolLogo: true, isTransparent: true, displayMode: "regular", colorTheme: "dark", locale: "en", largeChartUrl: "https://www.tradingview.com/chart/",
-      });
-      ticker.innerHTML = "";
-      ticker.appendChild(script);
-    }
+    buildPriceTicker();
   }
+}
+
+// ─── Custom auto-scrolling price ticker (mobile-friendly) ───
+function buildPriceTicker() {
+  const container = document.getElementById("price-ticker");
+  if (!container) return;
+  if (!allCoins.length) return;
+
+  const tickerCoins = allCoins.slice(0, 12);
+  const items = tickerCoins.map(c => {
+    const pct = c.price_change_percentage_24h;
+    const changeColor = pct >= 0 ? "#16c784" : "#ea3943";
+    const changeStr = (pct >= 0 ? "+" : "") + pct.toFixed(2) + "%";
+    const tvUrl = `https://www.tradingview.com/chart/?symbol=COINBASE:${c.symbol.toUpperCase()}USD`;
+    return `<a href="${tvUrl}" target="_blank" rel="noopener" class="ticker-item" title="${c.name} chart on TradingView">
+      <img src="${c.image}" alt="" loading="lazy" onerror="this.style.display='none'">
+      <span class="tk-name">${c.symbol.toUpperCase()}</span>
+      <span class="tk-price">${fmtUsd(c.current_price)}</span>
+      <span class="tk-change" style="color:${changeColor}">${changeStr}</span>
+    </a>`;
+  }).join("");
+
+  // Duplicate content for seamless loop
+  container.innerHTML = `<div class="ticker-track">${items}${items}</div>`;
 }
 
 // ─── Refresh logic ───
